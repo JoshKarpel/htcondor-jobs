@@ -18,6 +18,33 @@ from typing import Union
 import abc
 import enum
 import dataclasses
+import itertools
+import collections.abc
+
+
+class OrderedSet(collections.abc.MutableSet):
+    def __init__(self, values = None):
+        if values is None:
+            values = ()
+        self._data = dict(zip(values, itertools.repeat(None)))
+
+    def __contains__(self, item):
+        return item in self._data.keys()
+
+    def __iter__(self):
+        yield from self._data.keys()
+
+    def __len__(self):
+        return len(self._data.keys())
+
+    def add(self, x) -> None:
+        self._data[x] = None
+
+    def discard(self, x) -> None:
+        self._data.pop(x, None)
+
+    def __reversed__(self):
+        yield from reversed(list(self._data.keys()))
 
 
 # https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
@@ -101,7 +128,7 @@ class Boolean(StrEnum):
 
 class MultiConstraint(Constraint):
     def __init__(self, *constraints: Constraint):
-        self.constraints = set(constraints)
+        self.constraints = OrderedSet(constraints)
 
     def __iter__(self):
         yield from self.constraints
@@ -110,17 +137,17 @@ class MultiConstraint(Constraint):
         return len(self.constraints)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({", ".join(repr(c) for c in self.constraints)}'
+        return f'{self.__class__.__name__}({", ".join(repr(c) for c in self)}'
 
 
 class And(MultiConstraint):
     def __str__(self):
-        return ' && '.join(f'({c})' for c in self.constraints)
+        return ' && '.join(f'({c})' for c in self)
 
 
 class Or(MultiConstraint):
     def __str__(self):
-        return ' || '.join(f'({c})' for c in self.constraints)
+        return ' || '.join(f'({c})' for c in self)
 
 
 class Xor(MultiConstraint):

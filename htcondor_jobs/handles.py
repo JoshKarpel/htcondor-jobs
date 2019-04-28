@@ -54,12 +54,12 @@ class Handle(abc.ABC):
 
         return htcondor.Schedd().xquery(self.constraint_string, projection = projection, opts = opts, limit = limit)
 
-    def _act(self, action: htcondor.JobAction) -> classad.Classad:
+    def _act(self, action: htcondor.JobAction) -> classad.ClassAd:
         act_result = htcondor.Schedd().act(action, self.constraint_string)
 
         return act_result
 
-    def remove(self) -> classad.Classad:
+    def remove(self) -> classad.ClassAd:
         """
         Remove jobs from the queue.
 
@@ -70,7 +70,7 @@ class Handle(abc.ABC):
         """
         return self._act(htcondor.JobAction.Remove)
 
-    def hold(self) -> classad.Classad:
+    def hold(self) -> classad.ClassAd:
         """
         Hold jobs.
 
@@ -81,7 +81,7 @@ class Handle(abc.ABC):
         """
         return self._act(htcondor.JobAction.Hold)
 
-    def release(self) -> classad.Classad:
+    def release(self) -> classad.ClassAd:
         """
         Release held jobs.
         They will return to the queue in the idle state.
@@ -93,7 +93,7 @@ class Handle(abc.ABC):
         """
         return self._act(htcondor.JobAction.Release)
 
-    def pause(self) -> classad.Classad:
+    def pause(self) -> classad.ClassAd:
         """
         Pause jobs.
         Jobs will stop running, but will hold on to their claimed resources.
@@ -105,7 +105,7 @@ class Handle(abc.ABC):
         """
         return self._act(htcondor.JobAction.Suspend)
 
-    def resume(self) -> classad.Classad:
+    def resume(self) -> classad.ClassAd:
         """
         Resume (un-pause) jobs.
 
@@ -116,7 +116,7 @@ class Handle(abc.ABC):
         """
         return self._act(htcondor.JobAction.Continue)
 
-    def vacate(self) -> classad.Classad:
+    def vacate(self) -> classad.ClassAd:
         """
         Vacate running jobs.
         This will force them off of their current execute resource, causing them to become idle again.
@@ -128,7 +128,7 @@ class Handle(abc.ABC):
         """
         return self._act(htcondor.JobAction.Vacate)
 
-    def edit(self, attr: str, value: Union[str, int, float]) -> classad.Classad:
+    def edit(self, attr: str, value: Union[str, int, float]) -> classad.ClassAd:
         """
         Edit attributes of jobs.
 
@@ -180,7 +180,7 @@ class ConstraintHandle(Handle):
 
 
 class ClusterHandle(ConstraintHandle):
-    def __init__(self, clusterid: int, clusterad: classad.Classad):
+    def __init__(self, clusterid: int, clusterad: classad.ClassAd):
         super().__init__(constraints.InCluster(clusterid))
 
         if clusterad is None:
