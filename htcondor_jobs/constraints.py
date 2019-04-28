@@ -106,6 +106,9 @@ class MultiConstraint(Constraint):
     def __iter__(self):
         yield from self.constraints
 
+    def __len__(self):
+        return len(self.constraints)
+
     def __repr__(self):
         return f'{self.__class__.__name__}({", ".join(repr(c) for c in self.constraints)}'
 
