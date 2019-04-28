@@ -21,7 +21,7 @@ FROM ubuntu:bionic
 USER root
 
 # build config
-ARG PYTHON_VERSION=3.6
+ARG PYTHON_VERSION=3.7
 ARG HTCONDOR_VERSION=8.8
 ARG MINICONDA_VERSION=latest
 
@@ -58,7 +58,7 @@ RUN wget -qO - https://research.cs.wisc.edu/htcondor/ubuntu/HTCondor-Release.gpg
 
 # create a user to be our submitter and set conda install location
 ENV SUBMIT_USER=jobber
-ENV CONDA_DIR=/opt/conda
+ENV CONDA_DIR=/home/${SUBMIT_USER}/conda
 ENV PATH=${CONDA_DIR}/bin:${PATH}
 RUN groupadd ${SUBMIT_USER} \
  && useradd -m -g ${SUBMIT_USER} ${SUBMIT_USER}
@@ -86,12 +86,12 @@ RUN pip install --no-cache -r /home/${SUBMIT_USER}/requirements_dev.txt \
 ENTRYPOINT ["docker/entrypoint.sh"]
 CMD ["pytest"]
 
-# copy HTCondor and HTMap testing configs into place
+# copy HTCondor testing config into place
 COPY docker/condor_config.local /etc/condor/condor_config.local
 
-# copy htmap package into container and install it
+# copy package into container and install it
 # this is the only part that can't be cached against editing the package
-COPY --chown=mapper:mapper . /home/${SUBMIT_USER}/htmap
-WORKDIR /home/${SUBMIT_USER}/htmap
-RUN chmod +x /home/${SUBMIT_USER}/htcondor_jobs/docker/entrypoint.sh /home/${SUBMIT_USER}/htcondor_jobs/tests/travis.sh \
+COPY --chown=jobber:jobber . /home/${SUBMIT_USER}/htcondor-jobs
+WORKDIR /home/${SUBMIT_USER}/htcondor-jobs
+RUN chmod +x /home/${SUBMIT_USER}/htcondor-jobs/docker/entrypoint.sh /home/${SUBMIT_USER}/htcondor-jobs/tests/travis.sh \
  && pip install --no-cache --no-deps -e .

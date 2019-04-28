@@ -34,6 +34,6 @@ JOB_TRANSFORM_NAMES = $(JOB_TRANSFORM_NAMES) SetCondaVars
 JOB_TRANSFORM_SetCondaVars @=end
 [
   Requirements = ((Env?:"") == "") && ((Environment?:"") == "");
-  set_Environment = "PATH=/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin CONDA_DIR=/opt/conda";
+  set_Environment = "PATH=/home/jobber/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin CONDA_DIR=/home/jobber/conda";
 ]
 @end
