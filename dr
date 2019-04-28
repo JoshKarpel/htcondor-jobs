@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+CONTAINER_TAG=jobs-tests
+
+set -e
+echo "Building htcondor-jobs testing container..."
+docker build -t ${CONTAINER_TAG} --file docker/Dockerfile .
+docker run -it --rm ${CONTAINER_TAG} $@
