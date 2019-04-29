@@ -13,38 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
+from typing import Union, Iterator, Iterable
 
 import abc
 import enum
 import dataclasses
 import itertools
-import collections.abc
-
-
-class OrderedSet(collections.abc.MutableSet):
-    def __init__(self, values = None):
-        if values is None:
-            values = ()
-        self._data = dict(zip(values, itertools.repeat(None)))
-
-    def __contains__(self, item):
-        return item in self._data.keys()
-
-    def __iter__(self):
-        yield from self._data.keys()
-
-    def __len__(self):
-        return len(self._data.keys())
-
-    def add(self, x) -> None:
-        self._data[x] = None
-
-    def discard(self, x) -> None:
-        self._data.pop(x, None)
-
-    def __reversed__(self):
-        yield from reversed(list(self._data.keys()))
 
 
 # https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
@@ -71,47 +45,26 @@ class Expression:
         object.__setattr__(self, 'value', str(self.value))
 
 
+def flatten(iterables):
+    return itertools.chain.from_iterable(iterables)
+
+
 class Constraint(abc.ABC):
     @abc.abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError
 
+    def reduce(self) -> 'Constraint':
+        return self
+
     @abc.abstractmethod
-    def __iter__(self) -> 'Constraint':
+    def __iter__(self) -> Iterator['Constraint']:
         raise NotImplementedError
 
     def __and__(self, other) -> 'Constraint':
-        if other is Boolean.true:
-            return self
-        elif other is Boolean.false:
-            return Boolean.false
-
-        left = isinstance(self, And)
-        right = isinstance(other, And)
-        if left and right:
-            return And(*self, *other)
-        elif left:
-            return And(*self, other)
-        elif right:
-            return And(self, *other)
-
         return And(self, other)
 
     def __or__(self, other) -> 'Constraint':
-        if other is Boolean.true:
-            return Boolean.true
-        elif other is Boolean.false:
-            return self
-
-        left = isinstance(self, Or)
-        right = isinstance(other, Or)
-        if left and right:
-            return Or(*self, *other)
-        elif left:
-            return Or(*self, other)
-        elif right:
-            return Or(self, *other)
-
         return Or(self, other)
 
     def __xor__(self, other) -> 'Constraint':
@@ -121,20 +74,23 @@ class Constraint(abc.ABC):
         return Not(self)
 
 
-class Boolean(StrEnum):
+class Boolean(StrEnum, Constraint):
     true = 'true'
     false = 'false'
 
 
 class MultiConstraint(Constraint):
-    def __init__(self, *constraints: Constraint):
-        self.constraints = OrderedSet(constraints)
+    def __init__(self, *constraints: Union[Constraint, Iterable[Constraint]]):
+        self.constraints = list(flatten(constraints))
 
     def __iter__(self):
         yield from self.constraints
 
     def __len__(self):
         return len(self.constraints)
+
+    def __contains__(self, item):
+        return item in self.constraints
 
     def __repr__(self):
         return f'{self.__class__.__name__}({", ".join(repr(c) for c in self)}'
@@ -144,10 +100,36 @@ class And(MultiConstraint):
     def __str__(self):
         return ' && '.join(f'({c})' for c in self)
 
+    def reduce(self) -> Constraint:
+        if Boolean.false in self:
+            return Boolean.false
+
+        constraints = set(c for c in self if not isinstance(c, Boolean))
+
+        if len(constraints) == 0:
+            return Boolean.false
+        elif len(constraints) == 1:
+            return constraints.pop()
+        else:
+            return And(constraints)
+
 
 class Or(MultiConstraint):
     def __str__(self):
         return ' || '.join(f'({c})' for c in self)
+
+    def reduce(self) -> Constraint:
+        if Boolean.true in self:
+            return Boolean.true
+
+        constraints = set(c for c in self if not isinstance(c, Boolean))
+
+        if len(constraints) == 0:
+            return Boolean.true
+        elif len(constraints) == 1:
+            return constraints.pop()
+        else:
+            return Or(constraints)
 
 
 class Xor(MultiConstraint):
