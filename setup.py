@@ -24,11 +24,9 @@ THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def find_version():
     """Grab the version out of htmap/__init__.py without importing it."""
-    version_file_text = (Path(THIS_DIR) / 'htcondor_jobs' / '__init__.py').read_text()
+    version_file_text = (Path(THIS_DIR) / "htcondor_jobs" / "__init__.py").read_text()
     version_match = re.search(
-        r"^__version__ = ['\"]([^'\"]*)['\"]",
-        version_file_text,
-        re.M,
+        r"^__version__ = ['\"]([^'\"]*)['\"]", version_file_text, re.M
     )
     if version_match:
         return version_match.group(1)
@@ -36,15 +34,15 @@ def find_version():
 
 
 setup(
-    name = 'htcondor-jobs',
-    version = find_version(),
-    author = 'Josh Karpel',
-    author_email = 'josh.karpel@gmail.com',
-    description = 'High-level job submission and management for the HTCondor Python bindings',
-    long_description = Path('README.md').read_text(),
-    long_description_content_type = "text/markdown",
-    url = 'https://github.com/htcondor/htcondor-jobs',
-    classifiers = [
+    name="htcondor-jobs",
+    version=find_version(),
+    author="Josh Karpel",
+    author_email="josh.karpel@gmail.com",
+    description="High-level job submission and management for the HTCondor Python bindings",
+    long_description=Path("README.md").read_text(),
+    long_description_content_type="text/markdown",
+    url="https://github.com/htcondor/htcondor-jobs",
+    classifiers=[
         "Development Status :: 3 - Alpha",
         "Programming Language :: Python :: 3",
         "Intended Audience :: Science/Research",
@@ -55,8 +53,6 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Topic :: System :: Distributed Computing",
     ],
-    packages = [
-        'htcondor_jobs',
-    ],
-    install_requires = Path('requirements.txt').read_text().splitlines(),
+    packages=["htcondor_jobs"],
+    install_requires=Path("requirements.txt").read_text().splitlines(),
 )
