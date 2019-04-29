@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from typing import Union, Iterator, Iterable
 
 import abc
@@ -73,6 +74,12 @@ class Constraint(abc.ABC):
 
     def __invert__(self) -> "Constraint":
         return Not(self)
+
+    def __eq__(self, other):
+        return isinstance(other, Constraint) and str(self) == str(other)
+
+    def __hash__(self):
+        return hash(str(self))
 
 
 class Boolean(Constraint):

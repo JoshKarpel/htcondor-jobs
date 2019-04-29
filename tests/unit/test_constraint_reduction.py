@@ -15,6 +15,8 @@
 
 import pytest
 
+import operator
+
 import htcondor_jobs as jobs
 
 
@@ -60,3 +62,14 @@ def test_or_false():
     m = (a | b).reduce()
 
     assert m == a
+
+
+@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
+def test_deduplication(combinator):
+    a = jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
+    b = jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
+
+    d = combinator(a, b).reduce()
+
+    assert len(d) == 1
+    assert d == a
