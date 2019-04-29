@@ -28,9 +28,14 @@ class Handle(abc.ABC):
         raise NotImplementedError
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.constraint_string})'
+        return f"{self.__class__.__name__}({self.constraint_string})"
 
-    def query(self, projection: List[str] = None, opts: Optional[htcondor.QueryOpts] = None, limit: int = -1):
+    def query(
+        self,
+        projection: List[str] = None,
+        opts: Optional[htcondor.QueryOpts] = None,
+        limit: int = -1,
+    ):
         """
         Query against this set of jobs.
 
@@ -52,7 +57,9 @@ class Handle(abc.ABC):
         if projection is None:
             projection = []
 
-        return htcondor.Schedd().xquery(self.constraint_string, projection = projection, opts = opts, limit = limit)
+        return htcondor.Schedd().xquery(
+            self.constraint_string, projection=projection, opts=opts, limit=limit
+        )
 
     def _act(self, action: htcondor.JobAction) -> classad.ClassAd:
         act_result = htcondor.Schedd().act(action, self.constraint_string)
@@ -166,16 +173,16 @@ class ConstraintHandle(Handle):
     def constraint_string(self) -> str:
         return str(self.constraint)
 
-    def __and__(self, other: 'ConstraintHandle') -> 'ConstraintHandle':
+    def __and__(self, other: "ConstraintHandle") -> "ConstraintHandle":
         return ConstraintHandle(self.constraint & other.constraint)
 
-    def __or__(self, other: 'ConstraintHandle') -> 'ConstraintHandle':
+    def __or__(self, other: "ConstraintHandle") -> "ConstraintHandle":
         return ConstraintHandle(self.constraint | other.constraint)
 
-    def __xor__(self, other: 'ConstraintHandle') -> 'ConstraintHandle':
+    def __xor__(self, other: "ConstraintHandle") -> "ConstraintHandle":
         return ConstraintHandle(self.constraint ^ other.constraint)
 
-    def __eq__(self, other: 'ConstraintHandle') -> bool:
+    def __eq__(self, other: "ConstraintHandle") -> bool:
         return self.constraint == other.constraint
 
 
@@ -187,7 +194,7 @@ class ClusterHandle(ConstraintHandle):
             # try to get the clusterad from the schedd
             schedd = htcondor.Schedd()
             try:
-                clusterad = self.query(opts = htcondor.QueryOpts(0x10), limit = 1)[0]
+                clusterad = self.query(opts=htcondor.QueryOpts(0x10), limit=1)[0]
             except IndexError:
                 # no clusterad in the schedd
                 # try to get a jobad from the schedd's history

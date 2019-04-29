@@ -13,16 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional, Dict, Union
+
 import htcondor
 
 from . import handles
 
 
 class Cluster:
-    def __init__(self, descriptors: dict = None, count: int = 1, itemdata = None):
+    def __init__(
+        self,
+        descriptors: Optional[Dict[str, Union[str, int, float]]] = None,
+        count: int = 1,
+        itemdata: Optional[Dict[str, Union[str, int, float]]] = None,
+    ):
         if descriptors is None:
             descriptors = {}
-        self.descriptors = htcondor.Submit(descriptors)
+        self._descriptors = htcondor.Submit(descriptors)
 
         self.count = count
 
@@ -35,27 +42,31 @@ class Cluster:
     @count.setter
     def count(self, value: int):
         self._count = value
-        self.descriptors.setQArgs(self._count)
+        self._descriptors.setQArgs(self._count)
 
     def __getitem__(self, key):
-        return self.descriptors[key]
+        return self._descriptors[key]
 
     def __setitem__(self, key, value):
-        self.descriptors[key] = value
+        self._descriptors[key] = value
 
     def __delitem__(self, key):
-        del self.descriptors[key]
+        del self._descriptors[key]
 
     def keys(self):
-        return self.descriptors.keys()
+        return self._descriptors.keys()
 
     def values(self):
-        return self.descriptors.values()
+        return self._descriptors.values()
 
     def items(self):
-        return self.descriptors.items()
+        return self._descriptors.items()
 
     def _queue(self, transaction: htcondor.Transaction):
-        result = self.queue_with_itemdata(transaction, itemdata = self.itemdata)
+        result = self._descriptors.queue_with_itemdata(
+            transaction, itemdata=self.itemdata
+        )
 
-        return handles.ClusterHandle(clusterid = result.cluster(), clusterad = result.clusterad())
+        return handles.ClusterHandle(
+            clusterid=result.cluster(), clusterad=result.clusterad()
+        )

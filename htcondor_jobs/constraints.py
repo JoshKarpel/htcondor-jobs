@@ -13,62 +13,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
+from typing import Union, Iterator, Iterable
 
 import abc
 import enum
 import dataclasses
 import itertools
-import collections.abc
-
-
-class OrderedSet(collections.abc.MutableSet):
-    def __init__(self, values = None):
-        if values is None:
-            values = ()
-        self._data = dict(zip(values, itertools.repeat(None)))
-
-    def __contains__(self, item):
-        return item in self._data.keys()
-
-    def __iter__(self):
-        yield from self._data.keys()
-
-    def __len__(self):
-        return len(self._data.keys())
-
-    def add(self, x) -> None:
-        self._data[x] = None
-
-    def discard(self, x) -> None:
-        self._data.pop(x, None)
-
-    def __reversed__(self):
-        yield from reversed(list(self._data.keys()))
 
 
 # https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
+
 
 class StrEnum(str, enum.Enum):
     pass
 
 
 class Operator(StrEnum):
-    Equals = '=='
-    GreaterEquals = '>='
-    LessEquals = '<='
-    Greater = '>'
-    Less = '<'
+    Equals = "=="
+    GreaterEquals = ">="
+    LessEquals = "<="
+    Greater = ">"
+    Less = "<"
 
 
-@dataclasses.dataclass(frozen = True)
+@dataclasses.dataclass(frozen=True)
 class Expression:
     key: str
     operator: Operator
     value: Union[int, str, float]
 
-    def __post_init__(self):
-        object.__setattr__(self, 'value', str(self.value))
+
+def flatten(iterables):
+    return itertools.chain.from_iterable(iterables)
 
 
 class Constraint(abc.ABC):
@@ -76,65 +52,80 @@ class Constraint(abc.ABC):
     def __str__(self) -> str:
         raise NotImplementedError
 
+    def reduce(self) -> "Constraint":
+        return self
+
     @abc.abstractmethod
-    def __iter__(self) -> 'Constraint':
+    def __len__(self):
         raise NotImplementedError
 
-    def __and__(self, other) -> 'Constraint':
-        if other is Boolean.true:
-            return self
-        elif other is Boolean.false:
-            return Boolean.false
+    @abc.abstractmethod
+    def __iter__(self) -> Iterator["Constraint"]:
+        raise NotImplementedError
 
-        left = isinstance(self, And)
-        right = isinstance(other, And)
-        if left and right:
-            return And(*self, *other)
-        elif left:
-            return And(*self, other)
-        elif right:
-            return And(self, *other)
-
+    def __and__(self, other) -> "Constraint":
         return And(self, other)
 
-    def __or__(self, other) -> 'Constraint':
-        if other is Boolean.true:
-            return Boolean.true
-        elif other is Boolean.false:
-            return self
-
-        left = isinstance(self, Or)
-        right = isinstance(other, Or)
-        if left and right:
-            return Or(*self, *other)
-        elif left:
-            return Or(*self, other)
-        elif right:
-            return Or(self, *other)
-
+    def __or__(self, other) -> "Constraint":
         return Or(self, other)
 
-    def __xor__(self, other) -> 'Constraint':
+    def __xor__(self, other) -> "Constraint":
         return Xor(self, other)
 
-    def __invert__(self) -> 'Constraint':
+    def __invert__(self) -> "Constraint":
         return Not(self)
 
+    def __eq__(self, other):
+        return isinstance(other, Constraint) and str(self) == str(other)
 
-class Boolean(StrEnum):
-    true = 'true'
-    false = 'false'
+    def __hash__(self):
+        return hash(str(self))
+
+
+class Boolean(Constraint):
+    def __iter__(self):
+        yield self
+
+    def __len__(self):
+        return 1
+
+    @abc.abstractmethod
+    def __bool__(self):
+        raise NotImplementedError
+
+
+class true(Boolean):
+    def __str__(self):
+        return "true"
+
+    def __bool__(self):
+        return True
+
+
+class false(Boolean):
+    def __str__(self):
+        return "false"
+
+    def __bool__(self):
+        return False
+
+
+true = true()
+false = false()
 
 
 class MultiConstraint(Constraint):
-    def __init__(self, *constraints: Constraint):
-        self.constraints = OrderedSet(constraints)
+    def __init__(self, *constraints: Union[Constraint, Iterable[Constraint]]):
+        self._constraints = list(flatten(constraints))
 
     def __iter__(self):
-        yield from self.constraints
+        yield from self._constraints
 
     def __len__(self):
-        return len(self.constraints)
+        return len(self._constraints)
+
+    def __contains__(self, item):
+        return item in self._constraints
 
     def __repr__(self):
         return f'{self.__class__.__name__}({", ".join(repr(c) for c in self)}'
@@ -142,12 +133,44 @@ class MultiConstraint(Constraint):
 
 class And(MultiConstraint):
     def __str__(self):
-        return ' && '.join(f'({c})' for c in self)
+        return " && ".join(f"({c})" for c in self)
+
+    def reduce(self) -> Constraint:
+        # AND false is always false
+        if false in self:
+            return false
+
+        # unique-ify
+        constraints = set(c.reduce() for c in self if not isinstance(c, Boolean))
+
+        # empty AND is false
+        if len(constraints) == 0:
+            return false
+        elif len(constraints) == 1:
+            return constraints.pop()
+        else:
+            return And(constraints)
 
 
 class Or(MultiConstraint):
     def __str__(self):
-        return ' || '.join(f'({c})' for c in self)
+        return " || ".join(f"({c})" for c in self)
+
+    def reduce(self) -> Constraint:
+        # OR true is always true
+        if true in self:
+            return true
+
+        # unique-ify
+        constraints = set(c.reduce() for c in self if not isinstance(c, Boolean))
+
+        # empty OR is true
+        if len(constraints) == 0:
+            return true
+        elif len(constraints) == 1:
+            return constraints.pop()
+        else:
+            return Or(constraints)
 
 
 class Xor(MultiConstraint):
@@ -164,7 +187,7 @@ class Not(Constraint):
         yield self
 
     def __str__(self):
-        return f'!({self.constraint})'
+        return f"!({self.constraint})"
 
 
 class ComparisonConstraint(Constraint):
@@ -174,13 +197,16 @@ class ComparisonConstraint(Constraint):
     def __iter__(self):
         yield self
 
+    def __len__(self):
+        return 1
+
     def __str__(self):
-        return f'{self.expr.key}{self.expr.operator}{self.expr.value}'
+        return f"{self.expr.key} {self.expr.operator} {self.expr.value}"
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.expr})'
+        return f"{self.__class__.__name__}({self.expr})"
 
 
 class InCluster(ComparisonConstraint):
     def __init__(self, clusterid: int):
-        super().__init__(key = 'ClusterID', operator = Operator.Equals, value = clusterid)
+        super().__init__(key="ClusterId", operator=Operator.Equals, value=clusterid)
