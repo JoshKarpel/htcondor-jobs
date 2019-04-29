@@ -21,17 +21,17 @@ logger = _logging.getLogger(__name__)
 logger.setLevel(_logging.DEBUG)
 logger.addHandler(_logging.NullHandler())
 
-__version__ = '0.3.0'
+__version__ = "0.3.0"
 
 
 def version() -> str:
     """Return a string containing human-readable version information."""
-    return f'HTMap version {__version__}'
+    return f"HTMap version {__version__}"
 
 
 def _version_info(v: str) -> _Tuple[int, int, int, str]:
     """Un-format ``__version__``."""
-    return (*(int(x) for x in v[:5].split('.')), v[5:])
+    return (*(int(x) for x in v[:5].split(".")), v[5:])
 
 
 def version_info() -> _Tuple[int, int, int, str]:

@@ -19,7 +19,7 @@ from . import handles
 
 
 class Cluster:
-    def __init__(self, descriptors: dict = None, count: int = 1, itemdata = None):
+    def __init__(self, descriptors: dict = None, count: int = 1, itemdata=None):
         if descriptors is None:
             descriptors = {}
         self.descriptors = htcondor.Submit(descriptors)
@@ -56,6 +56,8 @@ class Cluster:
         return self.descriptors.items()
 
     def _queue(self, transaction: htcondor.Transaction):
-        result = self.queue_with_itemdata(transaction, itemdata = self.itemdata)
+        result = self.queue_with_itemdata(transaction, itemdata=self.itemdata)
 
-        return handles.ClusterHandle(clusterid = result.cluster(), clusterad = result.clusterad())
+        return handles.ClusterHandle(
+            clusterid=result.cluster(), clusterad=result.clusterad()
+        )

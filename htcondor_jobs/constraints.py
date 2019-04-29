@@ -23,26 +23,27 @@ import itertools
 
 # https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
 
+
 class StrEnum(str, enum.Enum):
     pass
 
 
 class Operator(StrEnum):
-    Equals = '=='
-    GreaterEquals = '>='
-    LessEquals = '<='
-    Greater = '>'
-    Less = '<'
+    Equals = "=="
+    GreaterEquals = ">="
+    LessEquals = "<="
+    Greater = ">"
+    Less = "<"
 
 
-@dataclasses.dataclass(frozen = True)
+@dataclasses.dataclass(frozen=True)
 class Expression:
     key: str
     operator: Operator
     value: Union[int, str, float]
 
     def __post_init__(self):
-        object.__setattr__(self, 'value', str(self.value))
+        object.__setattr__(self, "value", str(self.value))
 
 
 def flatten(iterables):
@@ -54,29 +55,29 @@ class Constraint(abc.ABC):
     def __str__(self) -> str:
         raise NotImplementedError
 
-    def reduce(self) -> 'Constraint':
+    def reduce(self) -> "Constraint":
         return self
 
     @abc.abstractmethod
-    def __iter__(self) -> Iterator['Constraint']:
+    def __iter__(self) -> Iterator["Constraint"]:
         raise NotImplementedError
 
-    def __and__(self, other) -> 'Constraint':
+    def __and__(self, other) -> "Constraint":
         return And(self, other)
 
-    def __or__(self, other) -> 'Constraint':
+    def __or__(self, other) -> "Constraint":
         return Or(self, other)
 
-    def __xor__(self, other) -> 'Constraint':
+    def __xor__(self, other) -> "Constraint":
         return Xor(self, other)
 
-    def __invert__(self) -> 'Constraint':
+    def __invert__(self) -> "Constraint":
         return Not(self)
 
 
 class Boolean(StrEnum, Constraint):
-    true = 'true'
-    false = 'false'
+    true = "true"
+    false = "false"
 
 
 class MultiConstraint(Constraint):
@@ -98,7 +99,7 @@ class MultiConstraint(Constraint):
 
 class And(MultiConstraint):
     def __str__(self):
-        return ' && '.join(f'({c})' for c in self)
+        return " && ".join(f"({c})" for c in self)
 
     def reduce(self) -> Constraint:
         if Boolean.false in self:
@@ -116,7 +117,7 @@ class And(MultiConstraint):
 
 class Or(MultiConstraint):
     def __str__(self):
-        return ' || '.join(f'({c})' for c in self)
+        return " || ".join(f"({c})" for c in self)
 
     def reduce(self) -> Constraint:
         if Boolean.true in self:
@@ -146,7 +147,7 @@ class Not(Constraint):
         yield self
 
     def __str__(self):
-        return f'!({self.constraint})'
+        return f"!({self.constraint})"
 
 
 class ComparisonConstraint(Constraint):
@@ -157,12 +158,12 @@ class ComparisonConstraint(Constraint):
         yield self
 
     def __str__(self):
-        return f'{self.expr.key}{self.expr.operator}{self.expr.value}'
+        return f"{self.expr.key} {self.expr.operator} {self.expr.value}"
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.expr})'
+        return f"{self.__class__.__name__}({self.expr})"
 
 
 class InCluster(ComparisonConstraint):
     def __init__(self, clusterid: int):
-        super().__init__(key = 'ClusterID', operator = Operator.Equals, value = clusterid)
+        super().__init__(key="ClusterID", operator=Operator.Equals, value=clusterid)
