@@ -18,6 +18,16 @@ import pytest
 import htcondor_jobs as jobs
 
 
-@pytest.mark.parametrize("tf, s", [(jobs.true, "true"), (jobs.false, "false")])
-def test_string_forms_of_true_and_false(tf, s):
-    assert str(tf) == s
+def test_string_form():
+    assert str(jobs.true) == "true"
+    assert str(jobs.false) == "false"
+
+
+def test_invert():
+    assert ~jobs.true is jobs.false
+    assert ~jobs.false is jobs.true
+
+
+def test_bool():
+    assert bool(jobs.true) is True
+    assert bool(jobs.false) is False

@@ -13,13 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Iterator, Any
+import logging
+
 import abc
 
 import htcondor
 import classad
 
 from . import constraints
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.NullHandler())
 
 
 class Handle(abc.ABC):
@@ -35,7 +42,7 @@ class Handle(abc.ABC):
         projection: List[str] = None,
         opts: Optional[htcondor.QueryOpts] = None,
         limit: int = -1,
-    ):
+    ) -> Iterator[classad.ClassAd]:
         """
         Query against this set of jobs.
 
@@ -182,8 +189,10 @@ class ConstraintHandle(Handle):
     def __xor__(self, other: "ConstraintHandle") -> "ConstraintHandle":
         return ConstraintHandle(self.constraint ^ other.constraint)
 
-    def __eq__(self, other: "ConstraintHandle") -> bool:
-        return self.constraint == other.constraint
+    def __eq__(self, other: Any) -> bool:
+        return bool(
+            isinstance(other, ConstraintHandle) and self.constraint == other.constraint
+        )
 
 
 class ClusterHandle(ConstraintHandle):
@@ -194,7 +203,7 @@ class ClusterHandle(ConstraintHandle):
             # try to get the clusterad from the schedd
             schedd = htcondor.Schedd()
             try:
-                clusterad = self.query(opts=htcondor.QueryOpts(0x10), limit=1)[0]
+                clusterad = next(self.query(opts=htcondor.QueryOpts(0x10), limit=1))
             except IndexError:
                 # no clusterad in the schedd
                 # try to get a jobad from the schedd's history

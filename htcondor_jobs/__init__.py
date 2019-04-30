@@ -21,7 +21,7 @@ logger = _logging.getLogger(__name__)
 logger.setLevel(_logging.DEBUG)
 logger.addHandler(_logging.NullHandler())
 
-__version__ = "0.3.0"
+__version__ = "0.1.0"
 
 
 def version() -> str:

@@ -14,10 +14,16 @@
 # limitations under the License.
 
 from typing import Optional, Dict, Union
+import logging
+
 
 import htcondor
 
 from . import handles
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.NullHandler())
 
 
 class Cluster:
@@ -32,7 +38,6 @@ class Cluster:
         self._descriptors = htcondor.Submit(descriptors)
 
         self.count = count
-
         self.itemdata = itemdata
 
     @property
@@ -40,17 +45,17 @@ class Cluster:
         return self._count
 
     @count.setter
-    def count(self, value: int):
+    def count(self, value: int) -> None:
         self._count = value
         self._descriptors.setQArgs(self._count)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Union[str, int, float]:
         return self._descriptors[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Union[str, int, float]) -> None:
         self._descriptors[key] = value
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: str) -> None:
         del self._descriptors[key]
 
     def keys(self):
@@ -62,7 +67,7 @@ class Cluster:
     def items(self):
         return self._descriptors.items()
 
-    def _queue(self, transaction: htcondor.Transaction):
+    def _queue(self, transaction: htcondor.Transaction) -> handles.ClusterHandle:
         result = self._descriptors.queue_with_itemdata(
             transaction, itemdata=self.itemdata
         )
