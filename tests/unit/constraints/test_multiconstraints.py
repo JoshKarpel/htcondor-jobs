@@ -38,7 +38,7 @@ def test_or_string_form():
     assert str(m) == "(Foo == 500) || (Bar <= 10)"
 
 
-@pytest.mark.parametrize("combinator", [operator.and_, operator.or_, operator.xor])
+@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
 def test_len_of_multiconstraints(combinator):
     a = jobs.ComparisonConstraint("Foo", jobs.Operator.Equals, 500)
     b = jobs.ComparisonConstraint("Bar", jobs.Operator.LessEquals, 10)
@@ -48,7 +48,7 @@ def test_len_of_multiconstraints(combinator):
     assert len(m) == 2
 
 
-@pytest.mark.parametrize("mc", [jobs.And, jobs.Or, jobs.Xor])
+@pytest.mark.parametrize("mc", [jobs.And, jobs.Or])
 def test_chained_multiconstraint_stays_flat(mc):
     a = jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
     b = jobs.ComparisonConstraint("bar", jobs.Operator.Equals, 0)
@@ -57,7 +57,7 @@ def test_chained_multiconstraint_stays_flat(mc):
     assert len(mc(mc(a, b), c)) == 3
 
 
-@pytest.mark.parametrize("combinator", [operator.and_, operator.or_, operator.xor])
+@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
 def test_chained_multiconstraint_stays_flat_using_operators(combinator):
     a = jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
     b = jobs.ComparisonConstraint("bar", jobs.Operator.Equals, 0)

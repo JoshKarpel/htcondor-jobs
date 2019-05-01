@@ -75,9 +75,6 @@ class Constraint(abc.ABC):
     def __or__(self, other: "Constraint") -> "Constraint":
         return Or(self, other)
 
-    def __xor__(self, other: "Constraint") -> "Constraint":
-        return Xor(self, other)
-
     def __invert__(self) -> "Constraint":
         return Not(self)
 
@@ -178,19 +175,6 @@ class Or(MultiConstraint):
         # OR true is always true
         if true in self:
             return true
-
-        return super().reduce()
-
-
-class Xor(MultiConstraint):
-    def __str__(self) -> str:
-        z = Or(*(And(*(d if d == c else Not(d) for d in self)) for c in self))
-        return str(z)
-
-    def reduce(self) -> "Constraint":
-        # true XOR true is false
-        if self._constraints.count(true) > 1:
-            return false
 
         return super().reduce()
 

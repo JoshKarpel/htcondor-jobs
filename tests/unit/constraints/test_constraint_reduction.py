@@ -64,10 +64,6 @@ def test_or_false():
     assert m == a
 
 
-def test_true_xor_true():
-    assert (jobs.true ^ jobs.true).reduce() == jobs.false
-
-
 @pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
 def test_deduplication(combinator):
     a = jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
@@ -79,12 +75,12 @@ def test_deduplication(combinator):
     assert d == a
 
 
-@pytest.mark.parametrize("mc", [jobs.And, jobs.Or, jobs.Xor])
+@pytest.mark.parametrize("mc", [jobs.And, jobs.Or])
 def test_empty_multiconstraint_is_true(mc):
     assert mc().reduce() is jobs.true
 
 
-@pytest.mark.parametrize("mc", [jobs.And, jobs.Or, jobs.Xor])
+@pytest.mark.parametrize("mc", [jobs.And, jobs.Or])
 def test_multiconstraint_with_one_constraint_reduces_to_that_constraint(mc):
     a = jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
     assert mc(a).reduce() is a
