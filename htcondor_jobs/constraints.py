@@ -21,6 +21,7 @@ import enum
 import dataclasses
 import itertools
 
+import classad
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -36,17 +37,20 @@ class StrEnum(str, enum.Enum):
 
 class Operator(StrEnum):
     Equals = "=="
+    NotEquals = "!="
     GreaterEquals = ">="
     LessEquals = "<="
     Greater = ">"
     Less = "<"
+    Is = "=?="
+    Isnt = "=!="
 
 
 @dataclasses.dataclass(frozen=True)
-class Expression:
-    key: str
+class Comparison:
+    left: str
     operator: Operator
-    value: Union[str, int, float]
+    right: Union[str, int, float, classad.ExprTree]
 
 
 def flatten(iterables):
@@ -202,8 +206,13 @@ class Not(Constraint):
 
 
 class ComparisonConstraint(Constraint):
-    def __init__(self, key: str, operator: Operator, value: Union[int, float, str]):
-        self.expr = Expression(key, operator, value)
+    def __init__(
+        self,
+        key: str,
+        operator: Operator,
+        value: Union[int, float, str, classad.ExprTree],
+    ):
+        self.expr = Comparison(key, operator, value)
 
     def __iter__(self) -> Iterator[Constraint]:
         yield self
@@ -212,7 +221,7 @@ class ComparisonConstraint(Constraint):
         return 1
 
     def __str__(self) -> str:
-        return f"{self.expr.key} {self.expr.operator} {self.expr.value}"
+        return f"{self.expr.left} {self.expr.operator} {self.expr.right}"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.expr})"

@@ -19,20 +19,18 @@ import htcondor_jobs as jobs
 
 
 def test_string_form():
-    assert str(jobs.true) == "true"
-    assert str(jobs.false) == "false"
+    c = ~jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
+
+    assert str(c) == "!(foo == 0)"
 
 
-def test_invert():
-    assert ~jobs.true is jobs.false
-    assert ~jobs.false is jobs.true
+def test_iter():
+    c = ~jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
 
-
-def test_bool():
-    assert bool(jobs.true) is True
-    assert bool(jobs.false) is False
+    assert next(iter(c)) is c
 
 
 def test_len():
-    assert len(jobs.true) == 1
-    assert len(jobs.false) == 1
+    c = ~jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
+
+    assert len(c) == 1
