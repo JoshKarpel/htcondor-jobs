@@ -21,7 +21,7 @@ import abc
 import htcondor
 import classad
 
-from . import constraints
+from . import constraints, locate
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,10 @@ logger.addHandler(logging.NullHandler())
 
 
 class Handle(abc.ABC):
+    def __init__(self, collector=None, scheduler=None):
+        self.collector = collector
+        self.scheduler = scheduler
+
     @property
     def constraint_string(self) -> str:
         raise NotImplementedError
@@ -37,11 +41,16 @@ class Handle(abc.ABC):
     def __repr__(self):
         return f"{self.__class__.__name__}({self.constraint_string})"
 
+    @property
+    def schedd(self):
+        # todo: caching?
+        return locate.get_schedd(self.collector, self.scheduler)
+
     def query(
         self,
         projection: List[str] = None,
         opts: Optional[htcondor.QueryOpts] = None,
-        limit: int = -1,
+        limit: Optional[int] = None,
     ) -> Iterator[classad.ClassAd]:
         """
         Query against this set of jobs.
@@ -64,12 +73,15 @@ class Handle(abc.ABC):
         if projection is None:
             projection = []
 
-        return htcondor.Schedd().xquery(
+        if limit is None:
+            limit = -1
+
+        return self.schedd.xquery(
             self.constraint_string, projection=projection, opts=opts, limit=limit
         )
 
     def _act(self, action: htcondor.JobAction) -> classad.ClassAd:
-        act_result = htcondor.Schedd().act(action, self.constraint_string)
+        act_result = self.schedd.act(action, self.constraint_string)
 
         return act_result
 
@@ -165,11 +177,18 @@ class Handle(abc.ABC):
         ad
             An ad describing the results of the edit.
         """
-        return htcondor.Schedd().edit(self.constraint_string, attr, value)
+        return self.schedd.edit(self.constraint_string, attr, value)
 
 
 class ConstraintHandle(Handle):
-    def __init__(self, constraint: constraints.Constraint):
+    def __init__(
+        self,
+        constraint: constraints.Constraint,
+        collector: Optional[str] = None,
+        scheduler: Optional[str] = None,
+    ):
+        super().__init__(collector=collector, scheduler=scheduler)
+
         self._constraint = constraint
 
     @property
@@ -186,9 +205,6 @@ class ConstraintHandle(Handle):
     def __or__(self, other: "ConstraintHandle") -> "ConstraintHandle":
         return ConstraintHandle(self.constraint | other.constraint)
 
-    def __xor__(self, other: "ConstraintHandle") -> "ConstraintHandle":
-        return ConstraintHandle(self.constraint ^ other.constraint)
-
     def __eq__(self, other: Any) -> bool:
         return bool(
             isinstance(other, ConstraintHandle) and self.constraint == other.constraint
@@ -196,8 +212,18 @@ class ConstraintHandle(Handle):
 
 
 class ClusterHandle(ConstraintHandle):
-    def __init__(self, clusterid: int, clusterad: classad.ClassAd):
-        super().__init__(constraints.InCluster(clusterid))
+    def __init__(
+        self,
+        clusterid: int,
+        clusterad: Optional[classad.ClassAd] = None,
+        collector: Optional[str] = None,
+        scheduler: Optional[str] = None,
+    ):
+        super().__init__(
+            constraint=constraints.InCluster(clusterid),
+            collector=collector,
+            scheduler=scheduler,
+        )
 
         if clusterad is None:
             # try to get the clusterad from the schedd
@@ -208,12 +234,16 @@ class ClusterHandle(ConstraintHandle):
                 # no clusterad in the schedd
                 # try to get a jobad from the schedd's history
                 try:
-                    clusterad = tuple(schedd.history(self.constraint_string, [], 1))[0]
-                except IndexError:
+                    clusterad = next(schedd.history(self.constraint_string, [], 1))
+                except StopIteration:
                     clusterad = None
         self.clusterad = clusterad
 
         self.clusterid = clusterid
+
+    @classmethod
+    def from_submit_result(cls, result: htcondor.SubmitResult):
+        return cls(clusterid=result.cluster(), clusterad=result.clusterad())
 
     def __int__(self):
         return self.clusterid
