@@ -72,6 +72,7 @@ class TimedCache(collections.abc.MutableMapping):
         return len(self.cache)
 
 
+# note for testing: the cache is cleared before every test in tests/conftest.py
 SCHEDD_CACHE = TimedCache(cache_time=60)
 
 
