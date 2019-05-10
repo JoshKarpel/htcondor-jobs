@@ -64,14 +64,16 @@ class Transaction:
         if itemdata is not None:
             itemdata = list(itemdata)
             check_itemdata(itemdata)
-            itemdata_msg = f' and {len(itemdata)} elements of itemdata'
+            itemdata_msg = f" and {len(itemdata)} elements of itemdata"
         else:
-            itemdata_msg = ''
+            itemdata_msg = ""
 
         result = sub.queue_with_itemdata(self._txn, count, itemdata)
         handle = handles.ClusterHandle.from_submit_result(result)
 
-        logger.info(f"Submitted {sub} to {self._schedd} on transaction {self._txn} with count {count}{itemdata_msg}")
+        logger.info(
+            f"Submitted {sub} to {self._schedd} on transaction {self._txn} with count {count}{itemdata_msg}"
+        )
 
         return handle
 
@@ -85,9 +87,7 @@ class Transaction:
         self._txn.__exit__(exc_type, exc_val, exc_tb)
 
 
-def check_itemdata(
-    itemdata: List[T_ITEMDATA_ELEMENT]
-):
+def check_itemdata(itemdata: List[T_ITEMDATA_ELEMENT]):
     if len(itemdata) < 1:
         raise exceptions.InvalidItemdata("empty itemdata")
 

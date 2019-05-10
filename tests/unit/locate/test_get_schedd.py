@@ -13,14 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 
-class JobsException(Exception):
-    pass
+import time
+
+import htcondor
+
+import htcondor_jobs as jobs
+from htcondor_jobs.locate import get_schedd
 
 
-class InvalidItemdata(JobsException):
-    pass
+def test_no_args():
+    assert isinstance(get_schedd(), htcondor.Schedd)
 
 
-class InvalidHandle(JobsException):
-    pass
+def test_caching():
+    schedd = get_schedd()
+    again = get_schedd()
+
+    assert schedd is again

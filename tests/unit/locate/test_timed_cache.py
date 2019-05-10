@@ -13,14 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 
-class JobsException(Exception):
-    pass
+import time
+
+import htcondor_jobs as jobs
+from htcondor_jobs.locate import TimedCache
 
 
-class InvalidItemdata(JobsException):
-    pass
+def test_caching():
+    tc = TimedCache(cache_time=20)
+
+    obj = object()
+    tc[0] = obj
+
+    assert tc[0] is obj
 
 
-class InvalidHandle(JobsException):
-    pass
+def test_cache_timeout():
+    tc = TimedCache(cache_time=0)
+    obj = object()
+    tc[0] = obj
+
+    with pytest.raises(KeyError):
+        tc[0]

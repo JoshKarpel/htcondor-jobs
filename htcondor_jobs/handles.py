@@ -21,7 +21,7 @@ import abc
 import htcondor
 import classad
 
-from . import constraints, locate
+from . import constraints, locate, exceptions
 
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,6 @@ class Handle(abc.ABC):
 
     @property
     def schedd(self):
-        # todo: caching?
         return locate.get_schedd(self.collector, self.scheduler)
 
     def query(
@@ -77,14 +76,16 @@ class Handle(abc.ABC):
             limit = -1
 
         cs = self.constraint_string
-        logger.info(f"Executing query against schedd {self.schedd} with constraint {cs}, projection {projection}, and limit {limit}")
-        return self.schedd.xquery(
-            cs, projection=projection, opts=opts, limit=limit
+        logger.info(
+            f"Executing query against schedd {self.schedd} with constraint {cs}, projection {projection}, and limit {limit}"
         )
+        return self.schedd.xquery(cs, projection=projection, opts=opts, limit=limit)
 
     def _act(self, action: htcondor.JobAction) -> classad.ClassAd:
         cs = self.constraint_string
-        logger.info(f"Executing action {action} against schedd {self.schedd} with constraint {cs}")
+        logger.info(
+            f"Executing action {action} against schedd {self.schedd} with constraint {cs}"
+        )
         return self.schedd.act(action, cs)
 
     def remove(self) -> classad.ClassAd:
@@ -180,7 +181,9 @@ class Handle(abc.ABC):
             An ad describing the results of the edit.
         """
         cs = self.constraint_string
-        logger.info(f"Executing edit {attr} = {value} against schedd {self.schedd} with constraint {cs}")
+        logger.info(
+            f"Executing edit {attr} = {value} against schedd {self.schedd} with constraint {cs}"
+        )
         return self.schedd.edit(cs, attr, value)
 
 
@@ -203,15 +206,47 @@ class ConstraintHandle(Handle):
     def constraint_string(self) -> str:
         return str(self.constraint)
 
+    def reduce(self) -> "ConstraintHandle":
+        return ConstraintHandle(
+            self.constraint.reduce(), collector=self.collector, scheduler=self.scheduler
+        )
+
     def __and__(self, other: "ConstraintHandle") -> "ConstraintHandle":
-        return ConstraintHandle(self.constraint & other.constraint)
+        if not all(
+            (self.collector == other.collector, self.scheduler == other.scheduler)
+        ):
+            raise exceptions.InvalidHandle(
+                "Cannot construct a handle for separate schedds"
+            )
+
+        return ConstraintHandle(
+            self.constraint & other.constraint,
+            collector=self.collector,
+            scheduler=self.scheduler,
+        )
 
     def __or__(self, other: "ConstraintHandle") -> "ConstraintHandle":
-        return ConstraintHandle(self.constraint | other.constraint)
+        if not all(
+            (self.collector == other.collector, self.scheduler == other.scheduler)
+        ):
+            raise exceptions.InvalidHandle(
+                "Cannot construct a handle for separate schedds"
+            )
+
+        return ConstraintHandle(
+            self.constraint | other.constraint,
+            collector=self.collector,
+            scheduler=self.scheduler,
+        )
 
     def __eq__(self, other: Any) -> bool:
-        return bool(
-            isinstance(other, ConstraintHandle) and self.constraint == other.constraint
+        return all(
+            (
+                isinstance(other, ConstraintHandle),
+                self.constraint == other.constraint,
+                self.collector == other.collector,
+                self.scheduler == other.scheduler,
+            )
         )
 
 
