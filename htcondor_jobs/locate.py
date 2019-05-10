@@ -14,8 +14,13 @@
 # limitations under the License.
 
 from typing import Optional
+import logging
 
 import htcondor
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.NullHandler())
 
 
 def get_schedd(

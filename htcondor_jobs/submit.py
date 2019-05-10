@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union, List, Iterable
+from typing import Optional, Union, List, Iterable, Mapping, Sequence, Any
+import logging
 
 import collections.abc
 
@@ -21,13 +22,17 @@ import htcondor
 
 from . import descriptions, handles, locate, exceptions
 
-T_ITEMDATA = Iterable[Union[collections.abc.Sequence, collections.abc.Mapping]]
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.NullHandler())
+
+T_ITEMDATA_ELEMENT = Union[Sequence, Mapping[str, Any]]
 
 
 def submit(
     description: descriptions.SubmitDescription,
     count: Optional[int] = 1,
-    itemdata: Optional[T_ITEMDATA] = None,
+    itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
     collector: Optional[str] = None,
     scheduler: Optional[str] = None,
 ):
@@ -52,15 +57,22 @@ class Transaction:
         self,
         description: descriptions.SubmitDescription,
         count: Optional[int] = 1,
-        itemdata: Optional[T_ITEMDATA] = None,
+        itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
     ):
         sub = htcondor.Submit(str(description))
 
-        itemdata = list(itemdata)
-        check_itemdata(itemdata)
+        if itemdata is not None:
+            itemdata = list(itemdata)
+            check_itemdata(itemdata)
+            itemdata_msg = f' and {len(itemdata)} elements of itemdata'
+        else:
+            itemdata_msg = ''
 
         result = sub.queue_with_itemdata(self._txn, count, itemdata)
         handle = handles.ClusterHandle.from_submit_result(result)
+
+        logger.info(f"Submitted {sub} to {self._schedd} on transaction {self._txn} with count {count}{itemdata_msg}")
+
         return handle
 
     def __enter__(self) -> "Transaction":
@@ -74,7 +86,7 @@ class Transaction:
 
 
 def check_itemdata(
-    itemdata: List[Union[collections.abc.Mapping, collections.abc.Sequence]]
+    itemdata: List[T_ITEMDATA_ELEMENT]
 ):
     if len(itemdata) < 1:
         raise exceptions.InvalidItemdata("empty itemdata")
@@ -87,17 +99,25 @@ def check_itemdata(
     raise exceptions.InvalidItemdata("unknown problem")
 
 
-def _check_itemdata_as_mappings(itemdata: List[collections.abc.Mapping]):
+def _check_itemdata_as_mappings(itemdata: List[Mapping]):
+    """All of the provided itemdata must have exactly identical keys, which must be strings."""
     first_item = itemdata[0]
     first_keys = set(first_item.keys())
     for item in itemdata:
+        # keys must be strings
+        if any(not isinstance(key, str) for key in item.keys()):
+            raise exceptions.InvalidItemdata("keys must be strings")
+
+        # key sets must all be the same
         if len(set(item.keys()) - first_keys) != 0:
             raise exceptions.InvalidItemdata("key mismatch")
 
 
-def _check_itemdata_as_sequences(itemdata: List[collections.abc.Sequence]):
+def _check_itemdata_as_sequences(itemdata: List[Sequence]):
+    """All of the provided itemdata must be the same length."""
     first_item = itemdata[0]
     first_len = len(first_item)
     for item in itemdata:
+        # same length
         if len(item) != first_len:
             raise exceptions.InvalidItemdata("bad len")

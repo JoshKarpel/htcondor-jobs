@@ -76,14 +76,16 @@ class Handle(abc.ABC):
         if limit is None:
             limit = -1
 
+        cs = self.constraint_string
+        logger.info(f"Executing query against schedd {self.schedd} with constraint {cs}, projection {projection}, and limit {limit}")
         return self.schedd.xquery(
-            self.constraint_string, projection=projection, opts=opts, limit=limit
+            cs, projection=projection, opts=opts, limit=limit
         )
 
     def _act(self, action: htcondor.JobAction) -> classad.ClassAd:
-        act_result = self.schedd.act(action, self.constraint_string)
-
-        return act_result
+        cs = self.constraint_string
+        logger.info(f"Executing action {action} against schedd {self.schedd} with constraint {cs}")
+        return self.schedd.act(action, cs)
 
     def remove(self) -> classad.ClassAd:
         """
@@ -177,7 +179,9 @@ class Handle(abc.ABC):
         ad
             An ad describing the results of the edit.
         """
-        return self.schedd.edit(self.constraint_string, attr, value)
+        cs = self.constraint_string
+        logger.info(f"Executing edit {attr} = {value} against schedd {self.schedd} with constraint {cs}")
+        return self.schedd.edit(cs, attr, value)
 
 
 class ConstraintHandle(Handle):
@@ -225,21 +229,20 @@ class ClusterHandle(ConstraintHandle):
             scheduler=scheduler,
         )
 
+        self.clusterid = clusterid
+
         if clusterad is None:
             # try to get the clusterad from the schedd
-            schedd = htcondor.Schedd()
             try:
                 clusterad = next(self.query(opts=htcondor.QueryOpts(0x10), limit=1))
             except IndexError:
                 # no clusterad in the schedd
                 # try to get a jobad from the schedd's history
                 try:
-                    clusterad = next(schedd.history(self.constraint_string, [], 1))
+                    clusterad = next(self.schedd.history(self.constraint_string, [], 1))
                 except StopIteration:
                     clusterad = None
         self.clusterad = clusterad
-
-        self.clusterid = clusterid
 
     @classmethod
     def from_submit_result(cls, result: htcondor.SubmitResult):
