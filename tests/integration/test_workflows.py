@@ -13,18 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-class JobsException(Exception):
-    pass
+import pytest
 
 
-class InvalidItemdata(JobsException):
-    pass
+import htcondor_jobs as jobs
 
 
-class InvalidHandle(JobsException):
-    pass
+def test_submit_hold_query():
+    desc = jobs.SubmitDescription(executable="/bin/sleep", args="5m")
 
+    handle = jobs.submit(desc, count=1)
+    handle.hold()
 
-class UninitializedTransaction(JobsException):
-    pass
+    ad = next(handle.query(projection=["JobStatus"]))
+    assert ad["JobStatus"] == jobs.JobStatus.Held

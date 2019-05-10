@@ -13,18 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 
-class JobsException(Exception):
-    pass
-
-
-class InvalidItemdata(JobsException):
-    pass
+import enum
 
 
-class InvalidHandle(JobsException):
-    pass
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.NullHandler())
 
 
-class UninitializedTransaction(JobsException):
-    pass
+class JobStatus(enum.IntEnum):
+    Idle = 1
+    Running = 2
+    Removed = 3
+    Completed = 4
+    Held = 5
+    TransferringOutput = 6

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Any, Union
+from typing import Optional, Any, Union, TypeVar, Generic, Dict
 import logging
 
 import time
@@ -25,16 +25,19 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.NullHandler())
 
+K = TypeVar("K")
+V = TypeVar("V")
 
-class TimedCacheItem:
+
+class TimedCacheItem(Generic[V]):
     __slots__ = ("timestamp", "value")
 
-    def __init__(self, value: Any):
+    def __init__(self, value: V):
         self.timestamp = time.time()
         self.value = value
 
 
-class TimedCache(collections.abc.MutableMapping):
+class TimedCache(collections.abc.MutableMapping, Generic[K, V]):
     """
     As a dictionary, except that the entries expire after a specified amount of time.
     """
@@ -47,22 +50,22 @@ class TimedCache(collections.abc.MutableMapping):
             The amount of time to store entries for, in seconds.
         """
         self.cache_time = cache_time
-        self.cache = {}
+        self.cache: Dict[K, TimedCacheItem[V]] = {}
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: K, value: V) -> None:
         self.cache[key] = TimedCacheItem(value)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: K) -> V:
         item = self.cache[key]
         if self._is_item_expired(item):
             del self[key]
             raise KeyError(f"key {key} found, but has expired")
         return item.value
 
-    def _is_item_expired(self, item: TimedCacheItem) -> bool:
+    def _is_item_expired(self, item: TimedCacheItem[V]) -> bool:
         return time.time() > (item.timestamp + self.cache_time)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: K) -> None:
         del self.cache[key]
 
     def __iter__(self):
@@ -73,7 +76,7 @@ class TimedCache(collections.abc.MutableMapping):
 
 
 # note for testing: the cache is cleared before every test in tests/conftest.py
-SCHEDD_CACHE = TimedCache(cache_time=60)
+SCHEDD_CACHE: TimedCache = TimedCache(cache_time=60)
 
 
 def get_schedd(

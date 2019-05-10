@@ -13,26 +13,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union, Iterator
+from typing import Union, Iterator, MutableMapping, Mapping, Optional
 import logging
 
-import collections.abc
+import classad
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.NullHandler())
 
+T_SUBMIT_VALUE = Union[str, int, float, classad.ExprTree]
 
-class SubmitDescription(collections.abc.MutableMapping):
-    def __init__(self, mapping=None, **descriptors: Union[str, int, float]):
+
+class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
+    def __init__(
+        self, mapping: Optional[Mapping] = None, **descriptors: T_SUBMIT_VALUE
+    ):
         if mapping is None:
             mapping = {}
         self._descriptors = dict(mapping, **descriptors)
 
-    def __getitem__(self, key: str) -> Union[str, int, float]:
+    def __getitem__(self, key: str) -> T_SUBMIT_VALUE:
         return self._descriptors[key]
 
-    def __setitem__(self, key: str, value: Union[str, int, float]) -> None:
+    def __setitem__(self, key: str, value: T_SUBMIT_VALUE) -> None:
         self._descriptors[key] = value
 
     def __delitem__(self, key: str) -> None:

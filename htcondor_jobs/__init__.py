@@ -26,7 +26,7 @@ __version__ = "0.1.0"
 
 def version() -> str:
     """Return a string containing human-readable version information."""
-    return f"HTMap version {__version__}"
+    return f"htcondor-jobs version {__version__}"
 
 
 def _version_info(v: str) -> _Tuple[int, int, int, str]:
@@ -39,8 +39,20 @@ def version_info() -> _Tuple[int, int, int, str]:
     return _version_info(__version__)
 
 
-from .constraints import *
-from .handles import *
-from .descriptions import *
-from .submit import *
+from .constraints import (
+    Constraint,
+    ComparisonConstraint,
+    Operator,
+    Comparison,
+    BooleanConstraint,
+    true,
+    false,
+    And,
+    Or,
+    Not,
+)
+from .handles import Handle, ConstraintHandle, ClusterHandle
+from .descriptions import SubmitDescription
+from .submit import submit, Transaction
+from .status import JobStatus
 from . import exceptions

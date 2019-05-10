@@ -30,7 +30,14 @@ logger.addHandler(logging.NullHandler())
 
 
 class Handle(abc.ABC):
-    def __init__(self, collector=None, scheduler=None):
+    """
+    A handle for a group of jobs defined by a constraint, given as a string.
+    The handle can be used to query, act on, or edit those jobs.
+    """
+
+    def __init__(
+        self, collector: Optional[str] = None, scheduler: Optional[str] = None
+    ):
         self.collector = collector
         self.scheduler = scheduler
 
@@ -58,11 +65,11 @@ class Handle(abc.ABC):
         ----------
         projection
             The :class:`classad.ClassAd` attributes to retrieve, as a list of case-insensitive strings.
-            If ``None``, all attributes will be returned.
+            If ``None`` (the default), all attributes will be returned.
         opts
         limit
             The total number of matches to return from the query.
-            If ``-1`` (the default), return all matches.
+            If ``None`` (the default), return all matches.
 
         Returns
         -------
@@ -71,6 +78,9 @@ class Handle(abc.ABC):
         """
         if projection is None:
             projection = []
+
+        if opts is None:
+            opts = htcondor.QueryOpts.Default
 
         if limit is None:
             limit = -1
@@ -188,6 +198,10 @@ class Handle(abc.ABC):
 
 
 class ConstraintHandle(Handle):
+    """
+    A handle defined by a :class:`constraints.Constraint`.
+    """
+
     def __init__(
         self,
         constraint: constraints.Constraint,
@@ -280,7 +294,7 @@ class ClusterHandle(ConstraintHandle):
         self.clusterad = clusterad
 
     @classmethod
-    def from_submit_result(cls, result: htcondor.SubmitResult):
+    def from_submit_result(cls, result: htcondor.SubmitResult) -> "ClusterHandle":
         return cls(clusterid=result.cluster(), clusterad=result.clusterad())
 
     def __int__(self):
