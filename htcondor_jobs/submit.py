@@ -68,7 +68,7 @@ class Transaction:
                 "the transaction has not been initialized (use it as a context manager)"
             )
 
-        sub = htcondor.Submit(str(description))
+        sub = description.as_submit()
 
         if itemdata is not None:
             itemdata = list(itemdata)

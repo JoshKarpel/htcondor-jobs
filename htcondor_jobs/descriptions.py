@@ -16,6 +16,7 @@
 from typing import Union, Iterator, MutableMapping, Mapping, Optional
 import logging
 
+import htcondor
 import classad
 
 logger = logging.getLogger(__name__)
@@ -51,3 +52,6 @@ class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
     def __str__(self) -> str:
         # todo: must get quoting rules right
         return "\n".join(f"{k} = {v}" for k, v in self.items())
+
+    def as_submit(self) -> htcondor.Submit:
+        return htcondor.Submit(str(self))

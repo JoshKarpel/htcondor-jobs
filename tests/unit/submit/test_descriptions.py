@@ -15,6 +15,8 @@
 
 import pytest
 
+import htcondor
+
 import htcondor_jobs as jobs
 
 
@@ -76,3 +78,7 @@ def test_delitem(desc):
 
 def test_str(desc):
     assert str(desc) == "foo = 0\nbar = baz"
+
+
+def test_as_submit_right_type(desc):
+    assert isinstance(desc.as_submit(), htcondor.Submit)
