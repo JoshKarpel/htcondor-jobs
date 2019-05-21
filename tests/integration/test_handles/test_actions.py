@@ -16,14 +16,26 @@
 import pytest
 
 import htcondor_jobs as jobs
-from htcondor_jobs.locate import SCHEDD_CACHE
 
 
-@pytest.fixture(scope="function", autouse=True)
-def clear_schedd_cache():
-    SCHEDD_CACHE.clear()
+def get_status(handle):
+    ad = next(handle.query(projection=["JobStatus"]))
+    return ad["JobStatus"]
 
 
-@pytest.fixture(scope="function")
-def long_sleep():
-    return jobs.SubmitDescription(executable="/bin/sleep", args="5m")
+def test_hold(long_sleep):
+    handle = jobs.submit(long_sleep, count=1)
+
+    handle.hold()
+
+    status = get_status(handle)
+    assert status == jobs.JobStatus.Held
+
+
+@pytest.mark.parametrize(
+    "action", ["remove", "hold", "release", "pause", "resume", "vacate"]
+)
+def test_actions_will_execute(long_sleep, action):
+    handle = jobs.submit(long_sleep, count=1)
+
+    getattr(handle, action)()

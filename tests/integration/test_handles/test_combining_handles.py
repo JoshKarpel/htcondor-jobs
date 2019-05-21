@@ -16,14 +16,21 @@
 import pytest
 
 import htcondor_jobs as jobs
-from htcondor_jobs.locate import SCHEDD_CACHE
 
 
-@pytest.fixture(scope="function", autouse=True)
-def clear_schedd_cache():
-    SCHEDD_CACHE.clear()
+def test_and_of_cluster_handles_gives_right_number_of_jobs_in_query(long_sleep):
+    a = jobs.submit(long_sleep, count=1)
+    b = jobs.submit(long_sleep, count=1)
+
+    num_jobs = len(list((a & b).query()))
+
+    assert num_jobs == 0
 
 
-@pytest.fixture(scope="function")
-def long_sleep():
-    return jobs.SubmitDescription(executable="/bin/sleep", args="5m")
+def test_or_of_cluster_handles_gives_right_number_of_jobs_in_query(long_sleep):
+    a = jobs.submit(long_sleep, count=1)
+    b = jobs.submit(long_sleep, count=1)
+
+    num_jobs = len(list((a | b).query()))
+
+    assert num_jobs == 2

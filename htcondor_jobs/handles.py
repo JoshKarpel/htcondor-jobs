@@ -194,7 +194,9 @@ class Handle(abc.ABC):
         logger.info(
             f"Executing edit {attr} = {value} against schedd {self.schedd} with constraint {cs}"
         )
-        return self.schedd.edit(cs, attr, value)
+        if isinstance(value, str):
+            value = f'"{value}"'
+        return self.schedd.edit(cs, attr, str(value))
 
 
 class ConstraintHandle(Handle):

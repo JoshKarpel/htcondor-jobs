@@ -40,7 +40,7 @@ def submit(
     itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
     collector: Optional[str] = None,
     scheduler: Optional[str] = None,
-) -> handles.Handle:
+) -> handles.ConstraintHandle:
     with Transaction(collector=collector, scheduler=scheduler) as txn:
         handle = txn.submit(description, count, itemdata)
 
@@ -62,7 +62,7 @@ class Transaction:
         description: descriptions.SubmitDescription,
         count: Optional[int] = 1,
         itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
-    ) -> handles.Handle:
+    ) -> handles.ConstraintHandle:
         if any((self._schedd is None, self._txn is None)):
             raise exceptions.UninitializedTransaction(
                 "the transaction has not been initialized (use it as a context manager)"

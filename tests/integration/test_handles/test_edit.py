@@ -15,15 +15,25 @@
 
 import pytest
 
-
 import htcondor_jobs as jobs
 
 
-def test_submit_hold_query():
-    desc = jobs.SubmitDescription(executable="/bin/sleep", args="5m")
+def get_job_attr(handle, attr):
+    ad = next(handle.query(projection=[attr]))
+    return ad[attr]
 
-    handle = jobs.submit(desc, count=1)
-    handle.hold()
 
-    ad = next(handle.query(projection=["JobStatus"]))
-    assert ad["JobStatus"] == jobs.JobStatus.Held
+def test_change_request_memory(long_sleep):
+    handle = jobs.submit(long_sleep, count=1)
+
+    handle.edit("RequestMemory", 12345)
+
+    assert get_job_attr(handle, "RequestMemory") == 12345
+
+
+def test_change_executable(long_sleep):
+    handle = jobs.submit(long_sleep, count=1)
+
+    handle.edit("Executable", "hello")
+
+    assert get_job_attr(handle, "Executable") == "hello"
