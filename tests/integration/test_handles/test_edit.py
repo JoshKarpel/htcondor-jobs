@@ -29,11 +29,3 @@ def test_change_request_memory(long_sleep):
     handle.edit("RequestMemory", 12345)
 
     assert get_job_attr(handle, "RequestMemory") == 12345
-
-
-def test_change_executable(long_sleep):
-    handle = jobs.submit(long_sleep, count=1)
-
-    handle.edit("Executable", "hello")
-
-    assert get_job_attr(handle, "Executable") == "hello"
