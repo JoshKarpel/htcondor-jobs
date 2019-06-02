@@ -17,6 +17,7 @@ import logging
 
 import enum
 
+import htcondor
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -24,9 +25,25 @@ logger.addHandler(logging.NullHandler())
 
 
 class JobStatus(enum.IntEnum):
-    Idle = 1
-    Running = 2
-    Removed = 3
-    Completed = 4
-    Held = 5
-    TransferringOutput = 6
+    IDLE = 1
+    RUNNING = 2
+    REMOVED = 3
+    COMPLETED = 4
+    HELD = 5
+    TRANSFERRING_OUTPUT = 6
+    SUSPENDED = 7  # todo: ?
+
+
+JOB_EVENT_STATUS_TRANSITIONS = {
+    htcondor.JobEventType.SUBMIT: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_EVICTED: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_UNSUSPENDED: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_RELEASED: JobStatus.IDLE,
+    htcondor.JobEventType.SHADOW_EXCEPTION: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_RECONNECT_FAILED: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_TERMINATED: JobStatus.COMPLETED,
+    htcondor.JobEventType.EXECUTE: JobStatus.RUNNING,
+    htcondor.JobEventType.JOB_HELD: JobStatus.HELD,
+    htcondor.JobEventType.JOB_SUSPENDED: JobStatus.SUSPENDED,
+    htcondor.JobEventType.JOB_ABORTED: JobStatus.REMOVED,
+}

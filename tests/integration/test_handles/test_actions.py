@@ -29,7 +29,7 @@ def test_hold(long_sleep):
     handle.hold()
 
     status = get_status(handle)
-    assert status == jobs.JobStatus.Held
+    assert status == jobs.JobStatus.HELD
 
 
 @pytest.mark.parametrize(

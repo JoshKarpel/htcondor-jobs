@@ -21,8 +21,7 @@ import abc
 import htcondor
 import classad
 
-from . import constraints, locate, exceptions
-
+from . import constraints, locate, status, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -293,9 +292,35 @@ class ClusterHandle(ConstraintHandle):
                     clusterad = None
         self.clusterad = clusterad
 
+        self._jel = None
+        self._state = dict()
+
     @classmethod
     def from_submit_result(cls, result: htcondor.SubmitResult) -> "ClusterHandle":
         return cls(clusterid=result.cluster(), clusterad=result.clusterad())
 
     def __int__(self):
         return self.clusterid
+
+    def __str__(self):
+        return self.clusterad.get("JobBatchName", str(self.clusterid))
+
+    @property
+    def _events(self):
+        if self._jel is None:
+            self._jel = htcondor.JobEventLog(self.clusterad["UserLog"]).events(0)
+        yield from self._jel
+
+    @property
+    def state(self):
+        self._update_state()
+        return self._state
+
+    def _update_state(self):
+        for event in self._events:
+            if event.cluster != self.clusterid:
+                continue
+            new_status = status.JOB_EVENT_STATUS_TRANSITIONS.get(event.type, None)
+            if new_status is not None:
+                key = (event.cluster, event.proc)
+                self._state[key] = new_status

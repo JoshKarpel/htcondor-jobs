@@ -55,3 +55,6 @@ class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
 
     def as_submit(self) -> htcondor.Submit:
         return htcondor.Submit(str(self))
+
+    def copy(self, **descriptors):
+        return self.__class__(self._descriptors, **descriptors)
