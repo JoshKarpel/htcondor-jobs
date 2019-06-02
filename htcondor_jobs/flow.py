@@ -20,6 +20,7 @@ import logging
 import abc
 import time
 import collections
+import itertools
 
 import htcondor
 
@@ -39,41 +40,80 @@ def is_done(handle) -> bool:
 LOOP_MIN_DELAY = 0.25
 
 
+def _extract(new_v):
+    if isinstance(new_v, tuple):
+        new_v, new_func = new_v
+    else:
+        new_v, new_func = new_v, is_done
+
+    return new_v, new_func
+
+
 def execute(*generators):
     """
     the generators should either yield handles,
     AND/OR yield an iterable of generators that themselves yield handles
     (they can do both/either as many times as they like)
     """
-    generator_to_handle = {g: next(g) for g in generators}
+    generator_to_handle = {}
+    for g in generators:
+        v = next(g)
+        if isinstance(v, tuple):
+            v, func = v
+        else:
+            v, func = v, is_done
+        generator_to_handle[g] = v, func
     subgens = collections.defaultdict(set)
 
+    cycle = itertools.count(0)
     while len(generator_to_handle) != 0:
+        c = next(cycle)
+        logger.debug(f"starting flow loop {c}")
         loop_start = time.time()
-        add = []
-        done = []
-        for gen, hnd in generator_to_handle.items():
-            # print("gen", gen, "hnd", hnd)
-            print(hnd, hnd.state if hnd is not True else hnd)
-            if len(subgens[gen]) == 0 and (hnd is True or is_done(hnd)):
+
+        for gen, (hnd, func) in list(generator_to_handle.items()):
+            if hnd is not None:
+                logger.debug(f"state of handle {hnd} is {hnd.state}")
+
+            if func(hnd):
                 try:
-                    v = next(gen)
-                    # print("next(gen)", v)
-                    if not isinstance(v, handles.Handle):
-                        for subgen in v:
-                            add.append(subgen)
-                            subgens[gen].add(subgen)
-                        generator_to_handle[gen] = True
+                    next_hnd = next(gen)
+
+                    # a handle, or a tuple with a handle and an edge function
+                    if isinstance(next_hnd, handles.Handle) or (
+                        isinstance(next_hnd, tuple)
+                        and len(next_hnd) == 2
+                        and callable(next_hnd[1])
+                    ):
+                        generator_to_handle[gen] = _extract(next_hnd)
+
+                    # next_hnd is actually an iterable of generators that produce handles
                     else:
-                        generator_to_handle[gen] = v
+                        # get all of the subgenerators running
+                        # and start tracking them in the flow loop
+                        # and in the subgenerator tracker
+                        for subgen in next_hnd:
+                            generator_to_handle[subgen] = _extract(next(subgen))
+                            subgens[gen].add(subgen)
+
+                        # now we're really hacking
+                        # replace the test function for the parent generator
+                        # with a test for the subgenerators being done
+                        # must use trick to early-bind gen into the lambda
+                        generator_to_handle[gen] = (
+                            None,
+                            lambda _, gen=gen: len(subgens[gen]) == 0,
+                        )
                 except StopIteration:
-                    print(f"{hnd} finished")
-                    done.append(gen)
-        for a in add:
-            generator_to_handle[a] = next(a)
-        for d in done:
-            generator_to_handle.pop(d)
-            for subs in subgens.values():
-                subs.discard(d)
-        time.sleep(max(LOOP_MIN_DELAY - (time.time() - loop_start), 0))
-        # print()
+                    logger.debug(f"handle {hnd} satisfied {func}, moving on")
+                    generator_to_handle.pop(gen)
+                    for subs in subgens.values():
+                        subs.discard(gen)
+
+        loop_time = time.time() - loop_start
+        sleep = max(LOOP_MIN_DELAY - loop_time, 0)
+
+        logger.debug(
+            f"finished flow loop {c} in {loop_time:.6f} seconds, sleeping {sleep:.6f} seconds until next loop"
+        )
+        time.sleep(sleep)
