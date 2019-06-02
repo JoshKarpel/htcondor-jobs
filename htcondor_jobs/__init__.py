@@ -55,4 +55,5 @@ from .handles import Handle, ConstraintHandle, ClusterHandle
 from .descriptions import SubmitDescription
 from .submit import submit, Transaction
 from .status import JobStatus
+from .flow import execute
 from . import exceptions
