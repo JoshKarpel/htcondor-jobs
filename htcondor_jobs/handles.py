@@ -31,7 +31,7 @@ logger.addHandler(logging.NullHandler())
 
 class Handle(abc.ABC):
     """
-    A handle for a group of jobs defined by a constraint, given as a string.
+    A connection to a set of jobs defined by a constraint.
     The handle can be used to query, act on, or edit those jobs.
     """
 
@@ -199,7 +199,8 @@ class Handle(abc.ABC):
 
 class ConstraintHandle(Handle):
     """
-    A handle defined by a :class:`constraints.Constraint`.
+    A connection to a set of jobs defined by a :class:`Constraint`.
+    The handle can be used to query, act on, or edit those jobs.
     """
 
     def __init__(
@@ -265,6 +266,11 @@ class ConstraintHandle(Handle):
 
 
 class ClusterHandle(ConstraintHandle):
+    """
+    A :class:`ConstraintHandle` that targets a single cluster of jobs,
+    as produced by :func:`submit`.
+    """
+
     def __init__(
         self,
         clusterid: int,
@@ -295,6 +301,9 @@ class ClusterHandle(ConstraintHandle):
 
     @classmethod
     def from_submit_result(cls, result: htcondor.SubmitResult) -> "ClusterHandle":
+        """
+        Produce a :class:`ClusterHandle` from a :class:`htcondor.SubmitResult`.
+        """
         return cls(clusterid=result.cluster(), clusterad=result.clusterad())
 
     def __int__(self):

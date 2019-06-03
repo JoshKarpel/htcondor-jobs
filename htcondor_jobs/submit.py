@@ -40,7 +40,26 @@ def submit(
     itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
     collector: Optional[str] = None,
     scheduler: Optional[str] = None,
-) -> handles.ConstraintHandle:
+) -> handles.ClusterHandle:
+    """
+    Submit a single cluster of jobs based on a submit description.
+
+    Parameters
+    ----------
+    description
+        A submit description.
+    count
+        The number of jobs to submit **for each element of the itemdata**.
+        If ``itemdata`` is ``None``, this is the total number of jobs to submit.
+    itemdata
+    collector
+    scheduler
+
+    Returns
+    -------
+    handle : :class:`ClusterHandle`
+        A handle pointing to the jobs that were submitted.
+    """
     with Transaction(collector=collector, scheduler=scheduler) as txn:
         handle = txn.submit(description, count, itemdata)
 
@@ -51,6 +70,16 @@ class Transaction:
     def __init__(
         self, collector: Optional[str] = None, scheduler: Optional[str] = None
     ):
+        """
+        Open a transaction with a schedd.
+        If you are submitting many clusters at once,
+        you should do so on a single transaction.
+
+        Parameters
+        ----------
+        collector
+        scheduler
+        """
         self.collector = collector
         self.scheduler = scheduler
 
@@ -62,7 +91,12 @@ class Transaction:
         description: descriptions.SubmitDescription,
         count: Optional[int] = 1,
         itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
-    ) -> handles.ConstraintHandle:
+    ) -> handles.ClusterHandle:
+        """
+        Identical to :func:`submit`,
+        except without the ``collector`` and ``scheduler`` arguments,
+        which are instead given to the :class:`Transaction`.
+        """
         if any((self._schedd is None, self._txn is None)):
             raise exceptions.UninitializedTransaction(
                 "the transaction has not been initialized (use it as a context manager)"

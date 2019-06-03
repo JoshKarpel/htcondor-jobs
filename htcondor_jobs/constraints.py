@@ -36,6 +36,10 @@ class StrEnum(str, enum.Enum):
 
 
 class Operator(StrEnum):
+    """
+    An enumeration of the possible ClassAd comparison operators.
+    """
+
     Equals = "=="
     NotEquals = "!="
     GreaterEquals = ">="
@@ -58,11 +62,14 @@ def flatten(iterables):
 
 
 class Constraint(abc.ABC):
+    """An object that represents an HTCondor constraint expression."""
+
     @abc.abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError
 
     def reduce(self) -> "Constraint":
+        """Produce a possibly-simpler version of this constraint."""
         return self
 
     @abc.abstractmethod
@@ -228,5 +235,7 @@ class ComparisonConstraint(Constraint):
 
 
 class InCluster(ComparisonConstraint):
+    """A :class:`ComparisonConstraint` that targets a single ``ClusterID``."""
+
     def __init__(self, clusterid: int):
         super().__init__(key="ClusterId", operator=Operator.Equals, value=clusterid)
