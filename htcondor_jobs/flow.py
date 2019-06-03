@@ -37,16 +37,36 @@ def is_done(handle) -> bool:
     return all(s is status.JobStatus.COMPLETED for s in handle.state.values())
 
 
-LOOP_MIN_DELAY = 0.25
+LOOP_MIN_DELAY = 0.5
 
 
-def _extract(new_v):
-    if isinstance(new_v, tuple):
-        new_v, new_func = new_v
+def _unpack_handle_and_test(next_handle):
+    if isinstance(next_handle, tuple):
+        next_handle, test = next_handle
     else:
-        new_v, new_func = new_v, is_done
+        next_handle, test = next_handle, is_done
 
-    return new_v, new_func
+    return next_handle, test
+
+
+class SubGeneratorTracker:
+    def __init__(self):
+        self.gen_to_subgens = collections.defaultdict(set)
+        self.subgen_to_gen = dict()
+
+    def add_subgen(self, gen, subgen):
+        self.gen_to_subgens[gen].add(subgen)
+        self.subgen_to_gen[subgen] = gen
+
+    def rm_subgen(self, subgen):
+        try:
+            gen = self.subgen_to_gen.pop(subgen)
+            self.gen_to_subgens[gen].discard(subgen)
+        except KeyError:
+            pass
+
+    def get_subgens(self, gen):
+        return self.gen_to_subgens[gen]
 
 
 def execute(*generators):
@@ -55,65 +75,67 @@ def execute(*generators):
     AND/OR yield an iterable of generators that themselves yield handles
     (they can do both/either as many times as they like)
     """
-    generator_to_handle = {}
-    for g in generators:
-        v = next(g)
-        if isinstance(v, tuple):
-            v, func = v
-        else:
-            v, func = v, is_done
-        generator_to_handle[g] = v, func
-    subgens = collections.defaultdict(set)
+    generator_to_handle_and_test = {
+        g: _unpack_handle_and_test(next(g)) for g in generators
+    }
+    subgen_tracker = SubGeneratorTracker()
 
     cycle = itertools.count(0)
-    while len(generator_to_handle) != 0:
+    while len(generator_to_handle_and_test) != 0:
         c = next(cycle)
         logger.debug(f"starting flow loop {c}")
         loop_start = time.time()
 
-        for gen, (hnd, func) in list(generator_to_handle.items()):
+        for gen, (hnd, test) in list(generator_to_handle_and_test.items()):
+            logger.debug(f"checking generator {gen} with handler {hnd} and test {test}")
             if hnd is not None:
                 logger.debug(f"state of handle {hnd} is {hnd.state}")
 
-            if func(hnd):
-                try:
-                    next_hnd = next(gen)
+            if not test(hnd):
+                continue
 
-                    # a handle, or a tuple with a handle and an edge function
-                    if isinstance(next_hnd, handles.Handle) or (
-                        isinstance(next_hnd, tuple)
-                        and len(next_hnd) == 2
-                        and callable(next_hnd[1])
-                    ):
-                        generator_to_handle[gen] = _extract(next_hnd)
+            try:
+                next_hnd = next(gen)
 
-                    # next_hnd is actually an iterable of generators that produce handles
-                    else:
-                        # get all of the subgenerators running
-                        # and start tracking them in the flow loop
-                        # and in the subgenerator tracker
-                        for subgen in next_hnd:
-                            generator_to_handle[subgen] = _extract(next(subgen))
-                            subgens[gen].add(subgen)
+                # a handle, or a tuple with a handle and an edge function
+                if isinstance(next_hnd, handles.Handle) or (
+                    isinstance(next_hnd, tuple)
+                    and len(next_hnd) == 2
+                    and callable(next_hnd[1])
+                ):
+                    generator_to_handle_and_test[gen] = _unpack_handle_and_test(
+                        next_hnd
+                    )
 
-                        # now we're really hacking
-                        # replace the test function for the parent generator
-                        # with a test for the subgenerators being done
-                        # must use trick to early-bind gen into the lambda
-                        generator_to_handle[gen] = (
-                            None,
-                            lambda _, gen=gen: len(subgens[gen]) == 0,
+                # next_hnd is actually an iterable of generators that produce handles
+                else:
+                    # get all of the subgenerators running
+                    # and start tracking them in the flow loop
+                    # and in the subgenerator tracker
+                    for subgen in next_hnd:
+                        logger.debug(f"adding subgenerator {subgen} to {gen}")
+                        generator_to_handle_and_test[subgen] = _unpack_handle_and_test(
+                            next(subgen)
                         )
-                except StopIteration:
-                    logger.debug(f"handle {hnd} satisfied {func}, moving on")
-                    generator_to_handle.pop(gen)
-                    for subs in subgens.values():
-                        subs.discard(gen)
+                        subgen_tracker.add_subgen(gen, subgen)
+
+                    # now we're really hacking
+                    # replace the test function for the parent generator
+                    # with a test for the subgenerators being done
+                    # must use trick to early-bind gen into the lambda
+                    generator_to_handle_and_test[gen] = (
+                        None,
+                        lambda _, gen=gen: len(subgen_tracker.get_subgens(gen)) == 0,
+                    )
+            except StopIteration:
+                logger.debug(f"handle {hnd} satisfied {test}, moving on")
+                generator_to_handle_and_test.pop(gen)
+                subgen_tracker.rm_subgen(gen)
 
         loop_time = time.time() - loop_start
         sleep = max(LOOP_MIN_DELAY - loop_time, 0)
 
         logger.debug(
-            f"finished flow loop {c} in {loop_time:.6f} seconds, sleeping {sleep:.6f} seconds until next loop"
+            f"finished flow loop {c} in {loop_time:.6f} seconds, sleeping {sleep:.6f} seconds before next loop"
         )
         time.sleep(sleep)
