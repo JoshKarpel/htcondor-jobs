@@ -69,73 +69,80 @@ class SubGeneratorTracker:
         return self.gen_to_subgens[gen]
 
 
-def execute(*generators):
-    """
-    the generators should either yield handles,
-    AND/OR yield an iterable of generators that themselves yield handles
-    (they can do both/either as many times as they like)
-    """
-    generator_to_handle_and_test = {
-        g: _unpack_handle_and_test(next(g)) for g in generators
-    }
-    subgen_tracker = SubGeneratorTracker()
+class Executor:
+    def __init__(self, *generators):
+        self.generator_to_handle_and_test = {}
+        self.subgen_tracker = SubGeneratorTracker()
 
-    cycle = itertools.count(0)
-    while len(generator_to_handle_and_test) != 0:
-        c = next(cycle)
-        logger.debug(f"starting flow loop {c}")
-        loop_start = time.time()
+        for g in generators:
+            self.advance(g)
 
-        for gen, (hnd, test) in list(generator_to_handle_and_test.items()):
-            logger.debug(f"checking generator {gen} with handler {hnd} and test {test}")
-            if hnd is not None:
-                logger.debug(f"state of handle {hnd} is {hnd.state}")
+    def execute(self):
+        """
+        the generators should either yield handles,
+        AND/OR yield an iterable of generators that themselves yield handles
+        (they can do both/either as many times as they like)
+        """
+        cycle = itertools.count(0)
+        while len(self.generator_to_handle_and_test) != 0:
+            c = next(cycle)
+            logger.debug(f"starting flow loop {c}")
+            loop_start = time.time()
 
-            if not test(hnd):
-                continue
+            for gen, (hnd, test) in list(self.generator_to_handle_and_test.items()):
+                logger.debug(
+                    f"checking generator {gen} with handler {hnd} and test {test}"
+                )
+                if hnd is not None:
+                    logger.debug(f"state of handle {hnd} is {hnd.state}")
 
-            try:
-                next_hnd = next(gen)
+                if not test(hnd):
+                    continue
 
-                # a handle, or a tuple with a handle and an edge function
-                if isinstance(next_hnd, handles.Handle) or (
-                    isinstance(next_hnd, tuple)
-                    and len(next_hnd) == 2
-                    and callable(next_hnd[1])
-                ):
-                    generator_to_handle_and_test[gen] = _unpack_handle_and_test(
-                        next_hnd
-                    )
-
-                # next_hnd is actually an iterable of generators that produce handles
-                else:
-                    # get all of the subgenerators running
-                    # and start tracking them in the flow loop
-                    # and in the subgenerator tracker
-                    for subgen in next_hnd:
-                        logger.debug(f"adding subgenerator {subgen} to {gen}")
-                        generator_to_handle_and_test[subgen] = _unpack_handle_and_test(
-                            next(subgen)
-                        )
-                        subgen_tracker.add_subgen(gen, subgen)
-
-                    # now we're really hacking
-                    # replace the test function for the parent generator
-                    # with a test for the subgenerators being done
-                    # must use trick to early-bind gen into the lambda
-                    generator_to_handle_and_test[gen] = (
-                        None,
-                        lambda _, gen=gen: len(subgen_tracker.get_subgens(gen)) == 0,
-                    )
-            except StopIteration:
                 logger.debug(f"handle {hnd} satisfied {test}, moving on")
-                generator_to_handle_and_test.pop(gen)
-                subgen_tracker.rm_subgen(gen)
+                try:
+                    self.advance(gen)
+                except StopIteration:
+                    logger.debug(f"generator {gen} exhausted")
+                    self.generator_to_handle_and_test.pop(gen)
+                    self.subgen_tracker.rm_subgen(gen)
 
-        loop_time = time.time() - loop_start
-        sleep = max(LOOP_MIN_DELAY - loop_time, 0)
+            loop_time = time.time() - loop_start
+            sleep = max(LOOP_MIN_DELAY - loop_time, 0)
 
-        logger.debug(
-            f"finished flow loop {c} in {loop_time:.6f} seconds, sleeping {sleep:.6f} seconds before next loop"
-        )
-        time.sleep(sleep)
+            logger.debug(
+                f"finished flow loop {c} in {loop_time:.6f} seconds, sleeping {sleep:.6f} seconds before next loop"
+            )
+            time.sleep(sleep)
+
+    def advance(self, gen):
+        next_hnd = next(gen)
+        # a handle, or a tuple with a handle and an edge function
+        if isinstance(next_hnd, handles.Handle) or (
+            isinstance(next_hnd, tuple) and len(next_hnd) == 2 and callable(next_hnd[1])
+        ):
+            self.generator_to_handle_and_test[gen] = _unpack_handle_and_test(next_hnd)
+
+        # next_hnd is actually an iterable of generators that produce handles
+        else:
+            # get all of the subgenerators running
+            # and start tracking them in the flow loop
+            # and in the subgenerator tracker
+            for subgen in next_hnd:
+                logger.debug(f"adding subgenerator {subgen} to {gen}")
+                self.advance(subgen)
+                self.subgen_tracker.add_subgen(gen, subgen)
+
+            # now we're really hacking
+            # replace the test function for the parent generator
+            # with a test for the subgenerators being done
+            # must use trick to early-bind gen into the lambda
+            self.generator_to_handle_and_test[gen] = (
+                None,
+                lambda _, gen=gen: len(self.subgen_tracker.get_subgens(gen)) == 0,
+            )
+
+
+def execute(*generators):
+    ex = Executor(*generators)
+    ex.execute()
