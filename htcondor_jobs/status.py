@@ -22,6 +22,8 @@ from pathlib import Path
 
 import htcondor
 
+from . import handles, exceptions
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.NullHandler())
@@ -55,10 +57,16 @@ JOB_EVENT_STATUS_TRANSITIONS = {
 
 class ClusterState:
     def __init__(self, handle: "handles.ClusterHandle"):
+        self._handle = handle
         self._clusterid = handle.clusterid
         self._offset = handle.first_proc
 
-        event_log_path = Path(handle.clusterad["UserLog"])
+        try:
+            event_log_path = Path(handle.clusterad["UserLog"])
+        except KeyError:
+            raise exceptions.NoJobEventLog(
+                "this cluster does not have a job event log, so it cannot track job state"
+            )
         self._events = htcondor.JobEventLog(event_log_path.as_posix()).events(0)
 
         # can trade time for memory by using an array.array here with code "B"
@@ -66,12 +74,13 @@ class ClusterState:
         # but will need to wrap output of __getitem__ in JobStatus to convert back
         self._data = self._initial_data(handle)
 
-        self._summary = collections.Counter(JobStatus(js) for js in self._data)
+        self._counts = collections.Counter(JobStatus(js) for js in self._data)
 
     def _initial_data(self, handle):
         return [JobStatus.UNMATERIALIZED for _ in range(len(handle))]
 
     def _update(self):
+        logger.debug(f"triggered status update for handle {self._handle}")
         for event in self._events:
             if event.cluster != self._clusterid:
                 continue
@@ -81,28 +90,32 @@ class ClusterState:
 
                 # update summary
                 old_status = self._data[key]
-                self._summary[old_status] -= 1
-                self._summary[new_status] += 1
+                self._counts[old_status] -= 1
+                self._counts[new_status] += 1
 
                 # set new status on job
                 self._data[key] = new_status
+        logger.debug(f"new status counts for {self._handle}: {self._counts}")
 
     def __getitem__(self, proc) -> JobStatus:
         self._update()
         return self._data[proc - self._offset]
 
     @property
-    def summary(self):
+    def counts(self):
         self._update()
-        return self._summary
+        return self._counts
 
     def __iter__(self):
+        self._update()
         yield from self._data
 
     def __str__(self):
+        self._update()
         return str(self._data)
 
     def __repr__(self):
+        self._update()
         return repr(self._data)
 
     def __len__(self):

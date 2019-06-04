@@ -13,22 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+import time
 
-class JobsException(Exception):
-    pass
-
-
-class InvalidItemdata(JobsException):
-    pass
+import htcondor_jobs as jobs
 
 
-class InvalidHandle(JobsException):
-    pass
+def test_wait(short_sleep):
+    handle = jobs.submit(short_sleep, count=1)
 
+    handle.wait(timeout=180)
 
-class UninitializedTransaction(JobsException):
-    pass
-
-
-class NoJobEventLog(JobsException):
-    pass
+    assert handle.state.counts[jobs.JobStatus.COMPLETED] == len(handle)

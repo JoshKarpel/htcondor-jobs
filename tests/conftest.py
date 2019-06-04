@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import pytest
+import os
 
 import htcondor_jobs as jobs
 from htcondor_jobs.locate import SCHEDD_CACHE
@@ -24,6 +25,25 @@ def clear_schedd_cache():
     SCHEDD_CACHE.clear()
 
 
+@pytest.fixture(scope="function", autouse=True)
+def clear_queue():
+    yield
+    os.system("condor_rm --all")  # todo: do better!
+
+
 @pytest.fixture(scope="function")
-def long_sleep():
-    return jobs.SubmitDescription(executable="/bin/sleep", args="5m")
+def long_sleep(tmp_path):
+    return jobs.SubmitDescription(
+        executable="/bin/sleep",
+        arguments="5m",
+        log=(tmp_path / "events.log").as_posix(),
+    )
+
+
+@pytest.fixture(scope="function")
+def short_sleep(tmp_path):
+    return jobs.SubmitDescription(
+        executable="/bin/sleep",
+        arguments="1s",
+        log=(tmp_path / "events.log").as_posix(),
+    )

@@ -13,22 +13,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 
-class JobsException(Exception):
-    pass
-
-
-class InvalidItemdata(JobsException):
-    pass
+import htcondor_jobs as jobs
 
 
-class InvalidHandle(JobsException):
-    pass
+def test_no_job_event_log():
+    desc = jobs.SubmitDescription(executable="/bin/sleep", arguments="5m")
+
+    handle = jobs.submit(desc, count=1)
+
+    with pytest.raises(jobs.exceptions.NoJobEventLog):
+        handle.state
 
 
-class UninitializedTransaction(JobsException):
-    pass
+def test_hold(long_sleep):
+    handle = jobs.submit(long_sleep, count=1)
+
+    handle.hold()
+
+    assert handle.state[0] is jobs.JobStatus.HELD
 
 
-class NoJobEventLog(JobsException):
-    pass
+def test_hold_summary(long_sleep, tmp_path):
+    handle = jobs.submit(long_sleep, count=1)
+
+    handle.hold()
+
+    assert handle.state.counts[jobs.JobStatus.HELD] == 1

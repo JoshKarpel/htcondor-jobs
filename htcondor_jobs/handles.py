@@ -303,10 +303,13 @@ class ClusterHandle(ConstraintHandle):
     @property
     def state(self) -> status.ClusterState:
         if self._state is None:
-            # todo: conditional to use a CompactClusterState instead
+            # todo: use a CompactClusterState instead if cluster is large?
             self._state = status.ClusterState(self)
         return self._state
 
-    def wait(self, delay: Union[int, float] = 1):
-        while not all(s is status.JobStatus.COMPLETED for s in self.state):
+    def wait(self, timeout=None, delay: Union[int, float] = 0.25):
+        start = time.time()
+        while self.state.counts[status.JobStatus.COMPLETED] != len(self):
+            if timeout is not None and time.time() > start + timeout:
+                raise TimeoutError
             time.sleep(delay)
