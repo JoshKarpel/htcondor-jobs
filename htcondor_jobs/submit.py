@@ -40,7 +40,7 @@ def submit(
     itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
     collector: Optional[str] = None,
     scheduler: Optional[str] = None,
-) -> handles.ConstraintHandle:
+) -> handles.ClusterHandle:
     with Transaction(collector=collector, scheduler=scheduler) as txn:
         handle = txn.submit(description, count, itemdata)
 
@@ -62,7 +62,7 @@ class Transaction:
         description: descriptions.SubmitDescription,
         count: Optional[int] = 1,
         itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
-    ) -> handles.ConstraintHandle:
+    ) -> handles.ClusterHandle:
         if any((self._schedd is None, self._txn is None)):
             raise exceptions.UninitializedTransaction(
                 "the transaction has not been initialized (use it as a context manager)"
@@ -78,7 +78,9 @@ class Transaction:
             itemdata_msg = ""
 
         result = sub.queue_with_itemdata(self._txn, count, itemdata)
-        handle = handles.ClusterHandle.from_submit_result(result)
+        handle = handles.ClusterHandle(
+            result, collector=self.collector, scheduler=self.scheduler
+        )
 
         logger.info(
             f"Submitted {repr(sub)} to {self._schedd} on transaction {self._txn} with count {count}{itemdata_msg}"

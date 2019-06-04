@@ -32,6 +32,7 @@ class JobStatus(enum.IntEnum):
     HELD = 5
     TRANSFERRING_OUTPUT = 6
     SUSPENDED = 7  # todo: ?
+    UNMATERIALIZED = 100
 
 
 JOB_EVENT_STATUS_TRANSITIONS = {

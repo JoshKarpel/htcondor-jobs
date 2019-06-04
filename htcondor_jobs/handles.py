@@ -17,6 +17,8 @@ from typing import List, Optional, Union, Iterator, Any
 import logging
 
 import abc
+import time
+
 
 import htcondor
 import classad
@@ -266,38 +268,22 @@ class ConstraintHandle(Handle):
 class ClusterHandle(ConstraintHandle):
     def __init__(
         self,
-        clusterid: int,
-        clusterad: Optional[classad.ClassAd] = None,
+        submit_result: htcondor.SubmitResult,
         collector: Optional[str] = None,
         scheduler: Optional[str] = None,
     ):
+        self.clusterid = submit_result.cluster()
+        self.clusterad = submit_result.clusterad()
+        self._first_proc = submit_result.first_proc()
+        self._num_procs = submit_result.num_procs()
+
         super().__init__(
-            constraint=constraints.InCluster(clusterid),
+            constraint=constraints.InCluster(self.clusterid),
             collector=collector,
             scheduler=scheduler,
         )
 
-        self.clusterid = clusterid
-
-        if clusterad is None:
-            # try to get the clusterad from the schedd
-            try:
-                clusterad = next(self.query(opts=htcondor.QueryOpts(0x10), limit=1))
-            except IndexError:
-                # no clusterad in the schedd
-                # try to get a jobad from the schedd's history
-                try:
-                    clusterad = next(self.schedd.history(self.constraint_string, [], 1))
-                except StopIteration:
-                    clusterad = None
-        self.clusterad = clusterad
-
-        self._jel = None
-        self._state = dict()
-
-    @classmethod
-    def from_submit_result(cls, result: htcondor.SubmitResult) -> "ClusterHandle":
-        return cls(clusterid=result.cluster(), clusterad=result.clusterad())
+        self._state = None
 
     def __int__(self):
         return self.clusterid
@@ -305,22 +291,53 @@ class ClusterHandle(ConstraintHandle):
     def __str__(self):
         return self.clusterad.get("JobBatchName", str(self.clusterid))
 
+    def __len__(self):
+        return self._num_procs
+
     @property
-    def _events(self):
-        if self._jel is None:
-            self._jel = htcondor.JobEventLog(self.clusterad["UserLog"]).events(0)
-        yield from self._jel
+    def first_proc(self):
+        return self._first_proc
 
     @property
     def state(self):
-        self._update_state()
+        if self._state is None:
+            self._state = ClusterState(self)
         return self._state
 
-    def _update_state(self):
-        for event in self._events:
+    def wait(self):
+        while not all(s is status.JobStatus.COMPLETED for s in self.state):
+            time.sleep(0.1)
+
+
+class ClusterState:
+    def __init__(self, handle: ClusterHandle):
+        self.clusterid = handle.clusterid
+        self.offset = handle.first_proc
+
+        # can trade time for memory by using an array.array here with code "B"
+        # 10 bytes -> 1 byte per job
+        # but will need to wrap output of __getitem__ in JobStatus to convert back
+        self._data = [status.JobStatus.UNMATERIALIZED for _ in range(len(handle))]
+
+        self.events = htcondor.JobEventLog(handle.clusterad["UserLog"]).events(0)
+
+    def _update(self):
+        for event in self.events:
             if event.cluster != self.clusterid:
                 continue
             new_status = status.JOB_EVENT_STATUS_TRANSITIONS.get(event.type, None)
             if new_status is not None:
-                key = (event.cluster, event.proc)
-                self._state[key] = new_status
+                self._data[event.proc - self.offset] = new_status
+
+    def __getitem__(self, proc):
+        self._update()
+        return self._data[proc - self.offset]
+
+    def __str__(self):
+        return str(self._data)
+
+    def __repr__(self):
+        return repr(self._data)
+
+    def __len__(self):
+        return len(self._data)
