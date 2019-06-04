@@ -283,6 +283,8 @@ class ClusterHandle(ConstraintHandle):
             scheduler=scheduler,
         )
 
+        # must delay this until after init, because at this point the submit
+        # transaction may not be done yet
         self._state = None
 
     def __int__(self):
@@ -299,45 +301,12 @@ class ClusterHandle(ConstraintHandle):
         return self._first_proc
 
     @property
-    def state(self):
+    def state(self) -> status.ClusterState:
         if self._state is None:
-            self._state = ClusterState(self)
+            # todo: conditional to use a CompactClusterState instead
+            self._state = status.ClusterState(self)
         return self._state
 
-    def wait(self):
+    def wait(self, delay: Union[int, float] = 1):
         while not all(s is status.JobStatus.COMPLETED for s in self.state):
-            time.sleep(0.1)
-
-
-class ClusterState:
-    def __init__(self, handle: ClusterHandle):
-        self.clusterid = handle.clusterid
-        self.offset = handle.first_proc
-
-        # can trade time for memory by using an array.array here with code "B"
-        # 10 bytes -> 1 byte per job
-        # but will need to wrap output of __getitem__ in JobStatus to convert back
-        self._data = [status.JobStatus.UNMATERIALIZED for _ in range(len(handle))]
-
-        self.events = htcondor.JobEventLog(handle.clusterad["UserLog"]).events(0)
-
-    def _update(self):
-        for event in self.events:
-            if event.cluster != self.clusterid:
-                continue
-            new_status = status.JOB_EVENT_STATUS_TRANSITIONS.get(event.type, None)
-            if new_status is not None:
-                self._data[event.proc - self.offset] = new_status
-
-    def __getitem__(self, proc):
-        self._update()
-        return self._data[proc - self.offset]
-
-    def __str__(self):
-        return str(self._data)
-
-    def __repr__(self):
-        return repr(self._data)
-
-    def __len__(self):
-        return len(self._data)
+            time.sleep(delay)
