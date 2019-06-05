@@ -32,3 +32,7 @@ class UninitializedTransaction(JobsException):
 
 class NoJobEventLog(JobsException):
     pass
+
+
+class WaitedTooLong(JobsException):
+    pass

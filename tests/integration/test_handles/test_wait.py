@@ -25,3 +25,10 @@ def test_wait(short_sleep):
     handle.wait(timeout=180)
 
     assert handle.state.counts[jobs.JobStatus.COMPLETED] == len(handle)
+
+
+def test_timeout(long_sleep):
+    handle = jobs.submit(long_sleep, count=1)
+
+    with pytest.raises(jobs.exceptions.WaitedTooLong):
+        handle.wait(0)

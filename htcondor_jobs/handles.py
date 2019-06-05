@@ -307,9 +307,30 @@ class ClusterHandle(ConstraintHandle):
             self._state = status.ClusterState(self)
         return self._state
 
-    def wait(self, timeout=None, delay: Union[int, float] = 0.25):
-        start = time.time()
+    def wait(
+        self,
+        timeout: Optional[Union[int, float]] = None,
+        test_delay: Union[int, float] = 0.25,
+    ):
+        """
+        Wait for all of the cluster's jobs to complete.
+
+        Parameters
+        ----------
+        timeout
+            The maximum amount of time to wait before raising a
+            :class:`exceptions.WaitedTooLong` exception.
+        test_delay
+            The amount of time to wait between test loops.
+
+        Returns
+        -------
+        elapsed_time :
+            The amount of time spent waiting.
+        """
+        start_time = time.time()
         while self.state.counts[status.JobStatus.COMPLETED] != len(self):
-            if timeout is not None and time.time() > start + timeout:
-                raise TimeoutError
-            time.sleep(delay)
+            if timeout is not None and time.time() > start_time + timeout:
+                raise exceptions.WaitedTooLong
+            time.sleep(test_delay)
+        return time.time() - start_time
