@@ -62,21 +62,17 @@ class ClusterState:
         self._offset = handle.first_proc
 
         try:
-            event_log_path = Path(handle.clusterad["UserLog"])
+            event_log_path = Path(handle.clusterad["UserLog"]).absolute()
         except KeyError:
             raise exceptions.NoJobEventLog(
                 "this cluster does not have a job event log, so it cannot track job state"
             )
         self._events = htcondor.JobEventLog(event_log_path.as_posix()).events(0)
 
-        # can trade time for memory by using an array.array here with code "B"
-        # 9 bytes -> 1 byte per job
-        # but will need to wrap output of __getitem__ in JobStatus to convert back
-        self._data = self._initial_data(handle)
-
+        self._data = self._make_initial_data(handle)
         self._counts = collections.Counter(JobStatus(js) for js in self._data)
 
-    def _initial_data(self, handle: "handles.ClusterHandle"):
+    def _make_initial_data(self, handle: "handles.ClusterHandle"):
         return [JobStatus.UNMATERIALIZED for _ in range(len(handle))]
 
     def _update(self):
@@ -128,19 +124,25 @@ class ClusterState:
         """Return ``True`` if **all** of the jobs in the cluster are complete."""
         return self.counts[JobStatus.COMPLETED] == len(self)
 
-    def is_running(self) -> bool:
+    def any_running(self) -> bool:
         """Return ``True`` if **any** of the jobs in the cluster are running."""
         return self.counts[JobStatus.RUNNING] > 0
 
-    def is_in_queue(self) -> bool:
+    def any_in_queue(self) -> bool:
         """Return ``True`` if **any** of the jobs in the cluster are still in the queue (idle, running, or held)."""
         c = self.counts
-        in_queue = sum((c[JobStatus.IDLE], c[JobStatus.RUNNING], c[JobStatus.HELD]))
-        return in_queue > 0
+        jobs_in_queue = sum(
+            (c[JobStatus.IDLE], c[JobStatus.RUNNING], c[JobStatus.HELD])
+        )
+        return jobs_in_queue > 0
+
+    def any_held(self) -> bool:
+        """Return ``True`` if **any** of the jobs in the cluster are held."""
+        return self.counts[JobStatus.HELD] > 0
 
 
 class CompactClusterState(ClusterState):
-    def _initial_data(self, handle: "handles.ClusterHandle"):
+    def _make_initial_data(self, handle: "handles.ClusterHandle"):
         return array.array("B", [JobStatus.UNMATERIALIZED for _ in range(len(handle))])
 
     def __getitem__(self, proc: int):
