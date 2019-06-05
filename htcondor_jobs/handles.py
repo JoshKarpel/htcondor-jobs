@@ -336,6 +336,8 @@ class ClusterHandle(ConstraintHandle):
         start_time = time.time()
         while self.state.counts[status.JobStatus.COMPLETED] != len(self):
             if timeout is not None and time.time() > start_time + timeout:
-                raise exceptions.WaitedTooLong
+                raise exceptions.WaitedTooLong(
+                    f"waited too long for handle {self} to complete"
+                )
             time.sleep(test_delay)
         return time.time() - start_time
