@@ -81,6 +81,7 @@ class ClusterState:
 
     def _update(self):
         logger.debug(f"triggered status update for handle {self._handle}")
+
         for event in self._events:
             if event.cluster != self._clusterid:
                 continue
@@ -95,6 +96,7 @@ class ClusterState:
 
                 # set new status on job
                 self._data[key] = new_status
+
         logger.debug(f"new status counts for {self._handle}: {self._counts}")
 
     def __getitem__(self, proc) -> JobStatus:

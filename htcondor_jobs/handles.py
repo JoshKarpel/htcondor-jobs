@@ -47,7 +47,7 @@ class Handle(abc.ABC):
         raise NotImplementedError
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.constraint_string})"
+        return f"{self.__class__.__name__}(constraint = {self.constraint_string})"
 
     @property
     def schedd(self):
@@ -221,6 +221,9 @@ class ConstraintHandle(Handle):
     def constraint_string(self) -> str:
         return str(self.constraint)
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}(constraint = {self.constraint})"
+
     def reduce(self) -> "ConstraintHandle":
         return ConstraintHandle(
             self.constraint.reduce(), collector=self.collector, scheduler=self.scheduler
@@ -290,8 +293,10 @@ class ClusterHandle(ConstraintHandle):
     def __int__(self):
         return self.clusterid
 
-    def __str__(self):
-        return self.clusterad.get("JobBatchName", str(self.clusterid))
+    def __repr__(self):
+        batch_name = self.clusterad.get("JobBatchName", None)
+        batch = f", JobBatchName = {batch_name}" if batch_name is not None else ""
+        return f"{self.__class__.__name__}(ClusterID = {self.clusterid}{batch})"
 
     def __len__(self):
         return self._num_procs
