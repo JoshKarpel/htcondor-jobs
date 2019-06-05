@@ -14,12 +14,13 @@
 # limitations under the License.
 
 import pytest
+
 import time
 
 import htcondor_jobs as jobs
 
 
-def test_wait(short_sleep):
+def test_complete(short_sleep):
     handle = jobs.submit(short_sleep, count=1)
 
     handle.wait(timeout=180)
@@ -27,8 +28,34 @@ def test_wait(short_sleep):
     assert handle.state.is_complete()
 
 
-def test_timeout(long_sleep):
+def test_is_in_queue_when_idle(long_sleep):
     handle = jobs.submit(long_sleep, count=1)
 
-    with pytest.raises(jobs.exceptions.WaitedTooLong):
-        handle.wait(timeout=0)
+    handle.wait(condition=lambda h: h.state[0] is jobs.JobStatus.IDLE)
+    # yes, it could start running now... oh well
+    assert handle.state.is_in_queue()
+
+
+def test_is_in_queue_when_held(long_sleep):
+    handle = jobs.submit(long_sleep, count=1)
+
+    handle.hold()
+    handle.wait(condition=lambda h: h.state[0] is jobs.JobStatus.HELD)
+
+    assert handle.state.is_in_queue()
+
+
+def test_is_in_queue_when_running(long_sleep):
+    handle = jobs.submit(long_sleep, count=1)
+
+    handle.wait(condition=lambda h: h.state[0] is jobs.JobStatus.RUNNING)
+
+    assert handle.state.is_in_queue()
+
+
+def test_is_running(long_sleep):
+    handle = jobs.submit(long_sleep, count=1)
+
+    handle.wait(condition=lambda h: h.state[0] is jobs.JobStatus.RUNNING)
+
+    assert handle.state.is_running()

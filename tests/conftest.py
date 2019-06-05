@@ -28,7 +28,7 @@ def clear_schedd_cache():
 @pytest.fixture(scope="function", autouse=True)
 def clear_queue():
     yield
-    os.system("condor_rm --all")  # todo: do better!
+    os.system("condor_rm --all")
 
 
 @pytest.fixture(scope="function")

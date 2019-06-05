@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Union, Iterator, Any
+from typing import List, Optional, Union, Iterator, Any, Callable
 import logging
 
 import abc
@@ -268,6 +268,9 @@ class ConstraintHandle(Handle):
         )
 
 
+COMPACT_STATE_SWITCHOVER_SIZE = 100_000
+
+
 class ClusterHandle(ConstraintHandle):
     def __init__(
         self,
@@ -308,23 +311,47 @@ class ClusterHandle(ConstraintHandle):
     @property
     def state(self) -> status.ClusterState:
         if self._state is None:
-            # todo: use a CompactClusterState instead if cluster is large?
-            self._state = status.ClusterState(self)
+            if len(self) > COMPACT_STATE_SWITCHOVER_SIZE:
+                state_type = status.CompactClusterState
+            else:
+                state_type = status.ClusterState
+
+            self._state = state_type(self)
+
         return self._state
 
     def wait(
         self,
+        condition: Callable[["ClusterHandle"], bool] = None,
         timeout: Optional[Union[int, float]] = None,
         test_delay: Union[int, float] = 0.25,
-    ):
+    ) -> float:
         """
-        Wait for all of the cluster's jobs to complete.
+        Wait for some condition to be satisfied.
+        By default, this waits until all of the jobs in the cluster are complete,
+        equivalent to
+
+        .. code:: python
+
+            handle.wait(
+                condition = lambda hnd: hnd.state.is_complete()
+            )
+
+        Where possible, for increased efficiency, use :class:`ClusterState` methods or
+        status counts instead of raw job statuses to determine the state of the
+        cluster.
 
         Parameters
         ----------
+        condition
+            A callable that defines the state to wait for.
+            It will be called with the :class:`ClusterHandle` as its only argument,
+            and when it returns ``True``, ``wait_for_condition`` will complete.
+            **The default condition is to wait for all jobs to be :class:`JobStatus.COMPLETED`.**
         timeout
             The maximum amount of time to wait before raising a
             :class:`exceptions.WaitedTooLong` exception.
+            **The ``condition`` will always be checked at least once, even if ``timeout <= 0``**.
         test_delay
             The amount of time to wait between test loops.
 
@@ -333,11 +360,14 @@ class ClusterHandle(ConstraintHandle):
         elapsed_time :
             The amount of time spent waiting.
         """
+        if condition is None:
+            condition = lambda hnd: hnd.state.is_complete()
+
         start_time = time.time()
-        while self.state.counts[status.JobStatus.COMPLETED] != len(self):
+        while not condition(self):
             if timeout is not None and time.time() > start_time + timeout:
                 raise exceptions.WaitedTooLong(
-                    f"waited too long for handle {self} to complete"
+                    f"waited too long for handle {self} to satisfy {condition}"
                 )
             time.sleep(test_delay)
         return time.time() - start_time

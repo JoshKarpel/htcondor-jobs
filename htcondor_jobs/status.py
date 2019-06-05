@@ -76,7 +76,7 @@ class ClusterState:
 
         self._counts = collections.Counter(JobStatus(js) for js in self._data)
 
-    def _initial_data(self, handle):
+    def _initial_data(self, handle: "handles.ClusterHandle"):
         return [JobStatus.UNMATERIALIZED for _ in range(len(handle))]
 
     def _update(self):
@@ -85,21 +85,22 @@ class ClusterState:
         for event in self._events:
             if event.cluster != self._clusterid:
                 continue
+
             new_status = JOB_EVENT_STATUS_TRANSITIONS.get(event.type, None)
             if new_status is not None:
                 key = event.proc - self._offset
 
-                # update summary
+                # update counts
                 old_status = self._data[key]
                 self._counts[old_status] -= 1
                 self._counts[new_status] += 1
 
-                # set new status on job
+                # set new status on individual job
                 self._data[key] = new_status
 
         logger.debug(f"new status counts for {self._handle}: {self._counts}")
 
-    def __getitem__(self, proc) -> JobStatus:
+    def __getitem__(self, proc: int) -> JobStatus:
         self._update()
         return self._data[proc - self._offset]
 
@@ -123,10 +124,24 @@ class ClusterState:
     def __len__(self):
         return len(self._data)
 
+    def is_complete(self) -> bool:
+        """Return ``True`` if **all** of the jobs in the cluster are complete."""
+        return self.counts[JobStatus.COMPLETED] == len(self)
+
+    def is_running(self) -> bool:
+        """Return ``True`` if **any** of the jobs in the cluster are running."""
+        return self.counts[JobStatus.RUNNING] > 0
+
+    def is_in_queue(self) -> bool:
+        """Return ``True`` if **any** of the jobs in the cluster are still in the queue (idle, running, or held)."""
+        c = self.counts
+        in_queue = sum((c[JobStatus.IDLE], c[JobStatus.RUNNING], c[JobStatus.HELD]))
+        return in_queue > 0
+
 
 class CompactClusterState(ClusterState):
-    def _initial_data(self, handle):
+    def _initial_data(self, handle: "handles.ClusterHandle"):
         return array.array("B", [JobStatus.UNMATERIALIZED for _ in range(len(handle))])
 
-    def __getitem__(self, proc):
+    def __getitem__(self, proc: int):
         return JobStatus(super().__getitem__(proc))
