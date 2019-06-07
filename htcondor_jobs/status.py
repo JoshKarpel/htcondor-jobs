@@ -63,7 +63,7 @@ class ClusterState:
         self._offset = handle.first_proc
 
         p = handle.clusterad.get(
-            "UserLog", handle.clusterad.get("DAGManNodesLog", NO_EVENT_LOG)
+            "DAGManNodesLog", handle.clusterad.get("UserLog", NO_EVENT_LOG)
         )
         if p is NO_EVENT_LOG:
             raise exceptions.NoJobEventLog(
