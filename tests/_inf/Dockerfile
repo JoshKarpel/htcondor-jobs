@@ -94,4 +94,4 @@ COPY tests/_inf/condor_config.local /etc/condor/condor_config.local
 COPY --chown=jobber:jobber . /home/${SUBMIT_USER}/htcondor-jobs
 WORKDIR /home/${SUBMIT_USER}/htcondor-jobs
 RUN chmod +x /home/${SUBMIT_USER}/htcondor-jobs/tests/_inf/entrypoint.sh /home/${SUBMIT_USER}/htcondor-jobs/tests/travis.sh \
- && pip install --no-cache --no-deps -e .
+ && pip install --no-cache-dir --no-deps -e .

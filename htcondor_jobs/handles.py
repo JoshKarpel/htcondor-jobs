@@ -49,6 +49,21 @@ class Handle(abc.ABC):
     def __repr__(self):
         return f"{self.__class__.__name__}(constraint = {self.constraint_string})"
 
+    def __eq__(self, other):
+        return all(
+            (
+                isinstance(other, self.__class__),
+                self.constraint_string == other.constraint_string,
+                self.collector == other.collector,
+                self.scheduler == other.scheduler,
+            )
+        )
+
+    def __hash__(self):
+        return hash(
+            (self.__class__, self.constraint_string, self.collector, self.scheduler)
+        )
+
     @property
     def schedd(self):
         return locate.get_schedd(self.collector, self.scheduler)
