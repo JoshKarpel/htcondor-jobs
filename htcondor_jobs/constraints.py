@@ -25,7 +25,6 @@ import classad
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 
 # https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm

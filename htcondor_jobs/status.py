@@ -26,7 +26,6 @@ from . import handles, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 
 class JobStatus(enum.IntEnum):
@@ -54,6 +53,8 @@ JOB_EVENT_STATUS_TRANSITIONS = {
     htcondor.JobEventType.JOB_ABORTED: JobStatus.REMOVED,
 }
 
+NO_EVENT_LOG = object()
+
 
 class ClusterState:
     def __init__(self, handle: "handles.ClusterHandle"):
@@ -61,13 +62,18 @@ class ClusterState:
         self._clusterid = handle.clusterid
         self._offset = handle.first_proc
 
-        try:
-            event_log_path = Path(handle.clusterad["UserLog"]).absolute()
-        except KeyError:
+        p = handle.clusterad.get(
+            "UserLog", handle.clusterad.get("DAGManNodesLog", NO_EVENT_LOG)
+        )
+        if p is NO_EVENT_LOG:
             raise exceptions.NoJobEventLog(
                 "this cluster does not have a job event log, so it cannot track job state"
             )
+        event_log_path = Path(p).absolute()
         self._events = htcondor.JobEventLog(event_log_path.as_posix()).events(0)
+        logger.debug(
+            f"initialized event log reader for handle {self._handle}, targeting {event_log_path}"
+        )
 
         self._data = self._make_initial_data(handle)
         self._counts = collections.Counter(JobStatus(js) for js in self._data)

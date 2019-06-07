@@ -27,7 +27,6 @@ from . import constraints, locate, status, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 
 class Handle(abc.ABC):

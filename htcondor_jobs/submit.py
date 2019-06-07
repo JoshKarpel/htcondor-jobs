@@ -24,7 +24,6 @@ from . import descriptions, handles, locate, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 T_ITEMDATA = Union[str, int, float]
 T_ITEMDATA_MAPPING = Mapping[str, T_ITEMDATA]

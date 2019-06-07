@@ -23,7 +23,6 @@ import htcondor
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 K = TypeVar("K")
 V = TypeVar("V")

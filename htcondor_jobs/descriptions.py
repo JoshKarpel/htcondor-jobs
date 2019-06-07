@@ -21,7 +21,6 @@ import classad
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 T_SUBMIT_VALUE = Union[str, int, float, classad.ExprTree]
 
