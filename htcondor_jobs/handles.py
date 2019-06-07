@@ -272,16 +272,6 @@ class ConstraintHandle(Handle):
             scheduler=self.scheduler,
         )
 
-    def __eq__(self, other: Any) -> bool:
-        return all(
-            (
-                isinstance(other, ConstraintHandle),
-                self.constraint == other.constraint,
-                self.collector == other.collector,
-                self.scheduler == other.scheduler,
-            )
-        )
-
 
 COMPACT_STATE_SWITCHOVER_SIZE = 100_000
 
