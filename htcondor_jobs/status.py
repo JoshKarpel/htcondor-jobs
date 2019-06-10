@@ -21,6 +21,7 @@ import collections
 from pathlib import Path
 
 import htcondor
+import weakref
 
 from . import handles, exceptions
 
@@ -56,24 +57,32 @@ JOB_EVENT_STATUS_TRANSITIONS = {
 NO_EVENT_LOG = object()
 
 
+def multiget(mapping, *keys, default=None):
+    for k in keys:
+        try:
+            return mapping[k]
+        except KeyError:
+            pass
+
+    return default
+
+
 class ClusterState:
     def __init__(self, handle: "handles.ClusterHandle"):
-        self._handle = handle
+        self._handle = weakref.proxy(handle)
         self._clusterid = handle.clusterid
         self._offset = handle.first_proc
 
-        p = handle.clusterad.get(
-            "DAGManNodesLog", handle.clusterad.get("UserLog", NO_EVENT_LOG)
+        raw_event_log_path = multiget(
+            handle.clusterad, "DAGManNodesLog", "UserLog", default=NO_EVENT_LOG
         )
-        if p is NO_EVENT_LOG:
+        if raw_event_log_path is NO_EVENT_LOG:
             raise exceptions.NoJobEventLog(
                 "this cluster does not have a job event log, so it cannot track job state"
             )
-        event_log_path = Path(p).absolute()
-        self._events = htcondor.JobEventLog(event_log_path.as_posix()).events(0)
-        logger.debug(
-            f"initialized event log reader for handle {self._handle}, targeting {event_log_path}"
-        )
+        self._event_log_path = Path(raw_event_log_path).absolute()
+
+        self._events = None
 
         self._data = self._make_initial_data(handle)
         self._counts = collections.Counter(JobStatus(js) for js in self._data)
@@ -83,6 +92,14 @@ class ClusterState:
 
     def _update(self):
         logger.debug(f"triggered status update for handle {self._handle}")
+
+        if self._events is None:
+            self._events = htcondor.JobEventLog(self._event_log_path.as_posix()).events(
+                0
+            )
+            logger.debug(
+                f"initialized event log reader for handle {self._handle}, targeting {self._event_log_path}"
+            )
 
         for event in self._events:
             if event.cluster != self._clusterid:
