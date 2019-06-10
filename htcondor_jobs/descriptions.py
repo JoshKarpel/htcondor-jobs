@@ -26,6 +26,8 @@ T_SUBMIT_VALUE = Union[str, int, float, classad.ExprTree]
 
 
 class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
+    __slots__ = ("_descriptors",)
+
     def __init__(
         self, mapping: Optional[Mapping] = None, **descriptors: T_SUBMIT_VALUE
     ):

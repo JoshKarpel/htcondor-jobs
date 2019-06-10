@@ -47,6 +47,8 @@ class Operator(StrEnum):
 
 @dataclasses.dataclass(frozen=True)
 class Comparison:
+    __slots__ = ("left", "operator", "right")
+
     left: str
     operator: Operator
     right: Union[str, int, float, classad.ExprTree]
@@ -57,6 +59,8 @@ def flatten(iterables):
 
 
 class Constraint(abc.ABC):
+    __slots__ = ()
+
     @abc.abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError
@@ -89,6 +93,8 @@ class Constraint(abc.ABC):
 
 
 class BooleanConstraint(Constraint):
+    __slots__ = ()
+
     def __iter__(self) -> Iterator["BooleanConstraint"]:
         yield self
 
@@ -101,6 +107,8 @@ class BooleanConstraint(Constraint):
 
 
 class _true(BooleanConstraint):
+    __slots__ = ()
+
     def __str__(self) -> str:
         return "true"
 
@@ -112,6 +120,8 @@ class _true(BooleanConstraint):
 
 
 class _false(BooleanConstraint):
+    __slots__ = ()
+
     def __str__(self) -> str:
         return "false"
 
@@ -128,6 +138,8 @@ false = _false()
 
 
 class MultiConstraint(Constraint):
+    __slots__ = ("_constraints",)
+
     def __init__(self, *constraints: Union[Constraint, Iterable[Constraint]]):
         self._constraints = list(flatten(constraints))
 
@@ -159,6 +171,8 @@ class MultiConstraint(Constraint):
 
 
 class And(MultiConstraint):
+    __slots__ = ()
+
     def __str__(self) -> str:
         return " && ".join(f"({c})" for c in self)
 
@@ -171,6 +185,8 @@ class And(MultiConstraint):
 
 
 class Or(MultiConstraint):
+    __slots__ = ()
+
     def __str__(self) -> str:
         return " || ".join(f"({c})" for c in self)
 
@@ -183,8 +199,10 @@ class Or(MultiConstraint):
 
 
 class Not(Constraint):
+    __slots__ = ("_constraint",)
+
     def __init__(self, constraint: Constraint):
-        self.constraint = constraint
+        self._constraint = constraint
 
     def __iter__(self) -> Iterator[Constraint]:
         yield self
@@ -193,18 +211,20 @@ class Not(Constraint):
         return 1
 
     def __str__(self) -> str:
-        return f"!({self.constraint})"
+        return f"!({self._constraint})"
 
     def reduce(self) -> "Constraint":
-        if self.constraint is true:
+        if self._constraint is true:
             return false
-        elif self.constraint is false:
+        elif self._constraint is false:
             return true
 
         return super().reduce()
 
 
 class ComparisonConstraint(Constraint):
+    __slots__ = ("expr",)
+
     def __init__(
         self,
         key: str,
@@ -227,5 +247,7 @@ class ComparisonConstraint(Constraint):
 
 
 class InCluster(ComparisonConstraint):
+    __slots__ = ()
+
     def __init__(self, clusterid: int):
         super().__init__(key="ClusterId", operator=Operator.Equals, value=clusterid)

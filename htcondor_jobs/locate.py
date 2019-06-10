@@ -41,6 +41,8 @@ class TimedCache(collections.abc.MutableMapping, Generic[K, V]):
     As a dictionary, except that the entries expire after a specified amount of time.
     """
 
+    __slots__ = ("cache_time", "cache")
+
     def __init__(self, *, cache_time: Union[int, float]):
         """
         Parameters

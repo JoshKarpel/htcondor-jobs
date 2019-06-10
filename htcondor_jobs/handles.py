@@ -35,6 +35,8 @@ class Handle(abc.ABC):
     The handle can be used to query, act on, or edit those jobs.
     """
 
+    __slots__ = ("collector", "scheduler", "__weakref__")
+
     def __init__(
         self, collector: Optional[str] = None, scheduler: Optional[str] = None
     ):
@@ -217,6 +219,8 @@ class ConstraintHandle(Handle):
     A handle defined by a :class:`constraints.Constraint`.
     """
 
+    __slots__ = ("_constraint",)
+
     def __init__(
         self,
         constraint: constraints.Constraint,
@@ -276,6 +280,8 @@ COMPACT_STATE_SWITCHOVER_SIZE = 100_000
 
 
 class ClusterHandle(ConstraintHandle):
+    __slots__ = ("clusterid", "clusterad", "_first_proc", "_num_procs", "_state")
+
     def __init__(
         self,
         submit_result: htcondor.SubmitResult,

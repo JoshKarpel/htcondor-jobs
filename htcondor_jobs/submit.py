@@ -47,6 +47,8 @@ def submit(
 
 
 class Transaction:
+    __slots__ = ("collector", "scheduler", "_schedd", "_txn")
+
     def __init__(
         self, collector: Optional[str] = None, scheduler: Optional[str] = None
     ):

@@ -68,6 +68,16 @@ def multiget(mapping, *keys, default=None):
 
 
 class ClusterState:
+    __slots__ = (
+        "_handle",
+        "_clusterid",
+        "_offset",
+        "_event_log_path",
+        "_events",
+        "_data",
+        "_counts",
+    )
+
     def __init__(self, handle: "handles.ClusterHandle"):
         self._handle = weakref.proxy(handle)
         self._clusterid = handle.clusterid
@@ -94,6 +104,9 @@ class ClusterState:
         logger.debug(f"triggered status update for handle {self._handle}")
 
         if self._events is None:
+            logger.debug(
+                f"looking for event log for handle {self._handle} at {self._event_log_path}"
+            )
             self._events = htcondor.JobEventLog(self._event_log_path.as_posix()).events(
                 0
             )
@@ -165,6 +178,8 @@ class ClusterState:
 
 
 class CompactClusterState(ClusterState):
+    __slots__ = ()
+
     def _make_initial_data(self, handle: "handles.ClusterHandle"):
         return array.array("B", [JobStatus.UNMATERIALIZED for _ in range(len(handle))])
 
