@@ -402,7 +402,7 @@ class ClusterHandle(ConstraintHandle):
     def to_json(self) -> dict:
         return dict(
             clusterid=self.clusterid,
-            clusterad=self.clusterad.printJson(),
+            clusterad=str(self.clusterad),
             first_proc=self.first_proc,
             num_procs=len(self),
             collector=self.collector,

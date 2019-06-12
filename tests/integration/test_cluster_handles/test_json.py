@@ -16,6 +16,8 @@
 import pytest
 import time
 
+import classad
+
 import htcondor_jobs as jobs
 
 
@@ -36,15 +38,23 @@ def test_save_then_load_is_equal_and_same_hash(roundtripped_handle):
     assert hash(a) == hash(b)
 
 
-@pytest.mark.xfail()
 def test_clusterad_is_reconstructed_correctly(roundtripped_handle):
     a, b = roundtripped_handle
 
-    print(type(a.clusterad), type(b.clusterad))
-    assert a.clusterad == b.clusterad
+    # we have to do this awful manual nonsense because if the values are
+    # expressions, doing a == will just return a new expression.
+    # ... so instead, we manually check that the lengths and contents are the same
+    # (plain dict equality will internally use ==, so no help there)
+    da = dict(a.clusterad)
+    db = dict(b.clusterad)
+    assert len(da) == len(db)
+    for (ka, va) in da.items():
+        if isinstance(va, classad.ExprTree):
+            assert str(va) == str(db[ka])
+        else:
+            assert va == db[ka]
 
 
-@pytest.mark.xfail()
 def test_states_are_same(roundtripped_handle):
     a, b = roundtripped_handle
 
