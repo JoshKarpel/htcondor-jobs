@@ -19,6 +19,7 @@ import enum
 import array
 import collections
 from pathlib import Path
+import functools
 
 import htcondor
 import weakref
@@ -65,6 +66,15 @@ def multiget(mapping, *keys, default=None):
             pass
 
     return default
+
+
+def update_before(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        self._update()
+        return func(self, *args, **kwargs)
+
+    return wrapper
 
 
 class ClusterState:
@@ -132,29 +142,37 @@ class ClusterState:
 
         logger.debug(f"new status counts for {self._handle}: {self._counts}")
 
+    @update_before
     def __getitem__(self, proc: int) -> JobStatus:
-        self._update()
         return self._data[proc - self._offset]
 
     @property
+    @update_before
     def counts(self):
-        self._update()
         return self._counts
 
+    @update_before
     def __iter__(self):
-        self._update()
         yield from self._data
 
+    @update_before
     def __str__(self):
-        self._update()
         return str(self._data)
 
+    @update_before
     def __repr__(self):
-        self._update()
         return repr(self._data)
 
     def __len__(self):
         return len(self._data)
+
+    @update_before
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            other._update()
+            return self._handle == other._handle and self._data == other._data
+
+        return False
 
     def is_complete(self) -> bool:
         """Return ``True`` if **all** of the jobs in the cluster are complete."""

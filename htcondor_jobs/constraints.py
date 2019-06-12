@@ -23,6 +23,8 @@ import itertools
 
 import classad
 
+from . import utils
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -46,7 +48,7 @@ class Operator(StrEnum):
 
 
 @dataclasses.dataclass(frozen=True)
-class Comparison:
+class Comparison(utils.SlotPickleMixin):
     __slots__ = ("left", "operator", "right")
 
     left: str
@@ -58,7 +60,7 @@ def flatten(iterables):
     return itertools.chain.from_iterable(iterables)
 
 
-class Constraint(abc.ABC):
+class Constraint(abc.ABC, utils.SlotPickleMixin):
     __slots__ = ()
 
     @abc.abstractmethod

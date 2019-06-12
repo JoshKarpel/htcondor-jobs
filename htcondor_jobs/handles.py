@@ -18,18 +18,19 @@ import logging
 
 import abc
 import time
-
+from pathlib import Path
+import pickle
 
 import htcondor
 import classad
 
-from . import constraints, locate, status, exceptions
+from . import constraints, locate, status, utils, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class Handle(abc.ABC):
+class Handle(abc.ABC, utils.SlotPickleMixin):
     """
     A handle for a group of jobs defined by a constraint, given as a string.
     The handle can be used to query, act on, or edit those jobs.
@@ -381,3 +382,68 @@ class ClusterHandle(ConstraintHandle):
                 )
             time.sleep(test_delay)
         return time.time() - start_time
+
+    def __getstate__(self):
+        state = super().__getstate__()
+
+        state["_state"] = None  # remove state tracker
+
+        return state
+
+    def save(self, path: Path):
+        with path.open(mode="wb") as f:
+            pickle.dump(self, f, protocol=-1)
+
+    @classmethod
+    def load(cls, path: Path):
+        with path.open(mode="rb") as f:
+            return pickle.load(f)
+
+    def to_json(self) -> dict:
+        return dict(
+            clusterid=self.clusterid,
+            clusterad=self.clusterad.printJson(),
+            first_proc=self.first_proc,
+            num_procs=len(self),
+            collector=self.collector,
+            scheduler=self.scheduler,
+        )
+
+    @classmethod
+    def from_json(cls, json):
+        submit_result = _MockSubmitResult(
+            clusterid=json["clusterid"],
+            clusterad=classad.parseOne(json["clusterad"]),  # todo: this doesn't work
+            first_proc=json["first_proc"],
+            num_procs=json["num_procs"],
+        )
+
+        return cls(
+            submit_result, collector=json["collector"], scheduler=json["scheduler"]
+        )
+
+
+class _MockSubmitResult:
+    """
+    This class is used purely to transform unpacked submit results back into
+    "submit results" to accommodate the :class:`ClusterHandle` constructor.
+    Should not be used in user code.
+    """
+
+    def __init__(self, clusterid, clusterad, first_proc, num_procs):
+        self._clusterid = clusterid
+        self._clusterad = clusterad
+        self._first_proc = first_proc
+        self._num_procs = num_procs
+
+    def cluster(self):
+        return self._clusterid
+
+    def clusterad(self):
+        return self._clusterad
+
+    def first_proc(self):
+        return self._first_proc
+
+    def num_procs(self):
+        return self._num_procs
