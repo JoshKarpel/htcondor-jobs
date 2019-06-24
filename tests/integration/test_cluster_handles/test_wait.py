@@ -30,5 +30,5 @@ def test_wait(short_sleep):
 def test_timeout(long_sleep):
     handle = jobs.submit(long_sleep, count=1)
 
-    with pytest.raises(jobs.exceptions.WaitedTooLong):
+    with pytest.raises(jobs.exceptions.Timeout):
         handle.wait(timeout=0)

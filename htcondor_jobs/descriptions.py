@@ -22,7 +22,7 @@ import classad
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-T_SUBMIT_VALUE = Union[str, int, float, classad.ExprTree]
+T_SUBMIT_VALUE = Union[str, int, float, bool, classad.ExprTree]
 
 
 class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
@@ -33,7 +33,7 @@ class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
     (see `the manual <https://htcondor.readthedocs.io/en/latest/man-pages/condor_submit.html#submit-description-file-commands>`_).
     :class:`SubmitDescription` supports the standard dictionary methods such as
     ``get``, ``setdefault``, ``keys``, ``items``, etc.,
-    as well as using the ``[]`` operator for both getting and setting.
+    as well as the ``[]`` operator for both getting and setting.
     """
 
     __slots__ = ("_descriptors",)

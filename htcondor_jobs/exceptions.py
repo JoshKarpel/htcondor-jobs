@@ -34,5 +34,5 @@ class NoJobEventLog(JobsException):
     pass
 
 
-class WaitedTooLong(JobsException):
+class Timeout(JobsException):
     pass

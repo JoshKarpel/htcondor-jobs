@@ -139,7 +139,7 @@ true = _true()
 false = _false()
 
 
-class MultiConstraint(Constraint):
+class MultiConstraint(Constraint, abc.ABC):
     __slots__ = ("_constraints",)
 
     def __init__(self, *constraints: Union[Constraint, Iterable[Constraint]]):

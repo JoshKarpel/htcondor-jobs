@@ -391,7 +391,7 @@ class ClusterHandle(ConstraintHandle):
         start_time = time.time()
         while not condition(self):
             if timeout is not None and time.time() > start_time + timeout:
-                raise exceptions.WaitedTooLong(
+                raise exceptions.Timeout(
                     f"waited too long for handle {self} to satisfy {condition}"
                 )
             time.sleep(test_delay)

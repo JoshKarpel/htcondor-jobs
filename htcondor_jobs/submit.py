@@ -42,6 +42,8 @@ def submit(
 ) -> handles.ClusterHandle:
     """
     Submit a single cluster of jobs based on a submit description.
+    If you are submitting many clusters at once,
+    you should do so on a single :class:`Transaction`.
 
     Parameters
     ----------
@@ -57,7 +59,7 @@ def submit(
     Returns
     -------
     handle : :class:`ClusterHandle`
-        A handle pointing to the jobs that were submitted.
+        A handle connected to the jobs that were submitted.
     """
     with Transaction(collector=collector, scheduler=scheduler) as txn:
         handle = txn.submit(description, count, itemdata)
@@ -100,7 +102,7 @@ class Transaction:
         """
         if any((self._schedd is None, self._txn is None)):
             raise exceptions.UninitializedTransaction(
-                "the transaction has not been initialized (use it as a context manager)"
+                "the Transaction has not been initialized (use it as a context manager)"
             )
 
         sub = description.as_submit()
@@ -136,14 +138,14 @@ class Transaction:
 
 def check_itemdata(itemdata: List[T_ITEMDATA_ELEMENT]) -> None:
     if len(itemdata) < 1:
-        raise exceptions.InvalidItemdata("empty itemdata")
+        raise exceptions.InvalidItemdata("empty itemdata, pass itemdata = None instead")
 
-    if isinstance(itemdata[0], collections.abc.Mapping):
+    if all(isinstance(item, collections.abc.Mapping) for item in itemdata):
         return _check_itemdata_as_mappings(itemdata)
-    elif isinstance(itemdata[0], collections.abc.Sequence):
+    elif all(isinstance(item, collections.abc.Sequence) for item in itemdata):
         return _check_itemdata_as_sequences(itemdata)
 
-    raise exceptions.InvalidItemdata("illegal itemdata type")
+    raise exceptions.InvalidItemdata(f"mixed or illegal itemdata types")
 
 
 def _check_itemdata_as_mappings(itemdata: List[T_ITEMDATA_MAPPING]) -> None:
