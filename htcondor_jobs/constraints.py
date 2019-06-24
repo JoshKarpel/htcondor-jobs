@@ -32,6 +32,7 @@ class Operator(utils.StrEnum):
     """
     An enumeration of the possible ClassAd comparison operators.
     """
+
     Equals = "=="
     NotEquals = "!="
     GreaterEquals = ">="
@@ -172,6 +173,11 @@ class MultiConstraint(Constraint):
 
 
 class And(MultiConstraint):
+    """
+    A constraint that evaluates to ``true`` only if all of the given
+    ``constraints`` evaluate to ``true``.
+    """
+
     __slots__ = ()
 
     def __str__(self) -> str:
@@ -186,6 +192,11 @@ class And(MultiConstraint):
 
 
 class Or(MultiConstraint):
+    """
+    A constraint that evaluates to ``true`` if any of the given
+    ``constraints`` evaluate to ``true``.
+    """
+
     __slots__ = ()
 
     def __str__(self) -> str:
@@ -200,6 +211,11 @@ class Or(MultiConstraint):
 
 
 class Not(Constraint):
+    """
+    A constraint which evaluates to ``true`` if the given
+    ``constraint`` evaluates to ``false``.
+    """
+
     __slots__ = ("_constraint",)
 
     def __init__(self, constraint: Constraint):

@@ -40,11 +40,24 @@ Querying, Acting on, and Editing Jobs
    .. autoattribute:: constraint
    .. automethod:: reduce
 
+Cluster Handles
+---------------
 
 .. autoclass:: ClusterHandle
 
-   .. automethod:: from_submit_result
+   .. autoattribute:: state
 
+   .. automethod:: save
+   .. automethod:: load
+   .. automethod:: to_json
+   .. automethod:: from_json
+
+.. autoclass:: ClusterState
+
+   .. automethod:: is_complete
+   .. automethod:: any_running
+   .. automethod:: any_in_queue
+   .. automethod:: any_held
 
 Constraints
 -----------

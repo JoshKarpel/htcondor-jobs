@@ -55,5 +55,5 @@ from .constraints import (
 from .handles import Handle, ConstraintHandle, ClusterHandle
 from .descriptions import SubmitDescription
 from .submit import submit, Transaction
-from .status import JobStatus
+from .status import JobStatus, ClusterState
 from . import exceptions

@@ -91,7 +91,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
 
         Returns
         -------
-        ads :
+        ads : Iterator[:class:`classad.ClassAd`]
             An iterator over the :class:`classad.ClassAd` that match the constraint.
         """
         if projection is None:
@@ -122,7 +122,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Remove)
@@ -133,7 +133,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Hold)
@@ -145,7 +145,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Release)
@@ -157,7 +157,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Suspend)
@@ -168,7 +168,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Continue)
@@ -180,7 +180,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Vacate)
@@ -205,7 +205,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the edit.
         """
         cs = self.constraint_string
@@ -285,6 +285,13 @@ class ClusterHandle(ConstraintHandle):
     """
     A :class:`ConstraintHandle` that targets a single cluster of jobs,
     as produced by :func:`submit`.
+
+    Because this handle targets a cluster of jobs, it has superpowers.
+    If the cluster has an event log
+    (``log = <path>`` in the :class:`SubmitDescription`,
+    see `the docs <https://htcondor.readthedocs.io/en/latest/man-pages/condor_submit.html>`_),
+    this handle's ``state`` attribute will be a :class:`ClusterState` that provides
+    information about the current state of the jobs in the cluster.
     """
 
     __slots__ = ("clusterid", "clusterad", "_first_proc", "_num_procs", "_state")
@@ -327,6 +334,7 @@ class ClusterHandle(ConstraintHandle):
 
     @property
     def state(self) -> status.ClusterState:
+        """A :class:`ClusterState` that provides information about job state for this cluster."""
         if self._state is None:
             if len(self) > COMPACT_STATE_SWITCHOVER_SIZE:
                 state_type = status.CompactClusterState
@@ -397,13 +405,13 @@ class ClusterHandle(ConstraintHandle):
         return state
 
     def save(self, path: Path) -> None:
-        """Save this :class:`ClusterHandle` to a file at `path` for later use (see :method:`ClusterHandle.load`)."""
+        """Save this :class:`ClusterHandle` to a file at ``path`` for later use (see :meth:`ClusterHandle.load`)."""
         with path.open(mode="wb") as f:
             pickle.dump(self, f, protocol=-1)
 
     @classmethod
     def load(cls, path: Path) -> "ClusterHandle":
-        """Load a :class:`ClusterHandle` from a file at `path` that was created by :method:`ClusterHandle.save`."""
+        """Load a :class:`ClusterHandle` from a file at ``path`` that was created by :meth:`ClusterHandle.save`."""
         with path.open(mode="rb") as f:
             return pickle.load(f)
 
@@ -420,7 +428,7 @@ class ClusterHandle(ConstraintHandle):
 
     @classmethod
     def from_json(cls, json: dict):
-        """Return a :class:`ClusterHandle` from the dictionary produced by :method:`ClusterHandle.to_json`."""
+        """Return a :class:`ClusterHandle` from the dictionary produced by :meth:`ClusterHandle.to_json`."""
         submit_result = _MockSubmitResult(
             clusterid=json["clusterid"],
             clusterad=classad.parseOne(json["clusterad"]),

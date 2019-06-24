@@ -63,7 +63,7 @@ autodoc_member_order = "bysource"
 autoclass_content = "both"
 autodoc_default_flags = ["undoc-members"]
 
-napoleon_use_rtype = False
+napoleon_use_rtype = True
 
 # -- Options for intersphinx extension ---------------------------------------
 

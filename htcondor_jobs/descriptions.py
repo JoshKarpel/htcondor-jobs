@@ -81,4 +81,8 @@ class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
         return htcondor.Submit(str(self))
 
     def copy(self, **descriptors):
+        """
+        Produce a copy of this :class:`SubmitDescription`,
+        with the given ``descriptors`` changed.
+        """
         return self.__class__(self._descriptors, **descriptors)
