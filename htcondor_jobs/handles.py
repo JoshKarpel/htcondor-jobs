@@ -32,7 +32,7 @@ logger.setLevel(logging.DEBUG)
 
 class Handle(abc.ABC, utils.SlotPickleMixin):
     """
-    A handle for a group of jobs defined by a constraint, given as a string.
+    A connection to a set of jobs defined by a constraint.
     The handle can be used to query, act on, or edit those jobs.
     """
 
@@ -217,7 +217,8 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
 
 class ConstraintHandle(Handle):
     """
-    A handle defined by a :class:`constraints.Constraint`.
+    A connection to a set of jobs defined by a :class:`Constraint`.
+    The handle can be used to query, act on, or edit those jobs.
     """
 
     __slots__ = ("_constraint",)
@@ -281,6 +282,11 @@ COMPACT_STATE_SWITCHOVER_SIZE = 100_000
 
 
 class ClusterHandle(ConstraintHandle):
+    """
+    A :class:`ConstraintHandle` that targets a single cluster of jobs,
+    as produced by :func:`submit`.
+    """
+
     __slots__ = ("clusterid", "clusterad", "_first_proc", "_num_procs", "_state")
 
     def __init__(

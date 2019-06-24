@@ -29,6 +29,9 @@ logger.setLevel(logging.DEBUG)
 
 
 class Operator(utils.StrEnum):
+    """
+    An enumeration of the possible ClassAd comparison operators.
+    """
     Equals = "=="
     NotEquals = "!="
     GreaterEquals = ">="
@@ -53,6 +56,8 @@ def flatten(iterables):
 
 
 class Constraint(abc.ABC, utils.SlotPickleMixin):
+    """An object that represents an HTCondor constraint expression."""
+
     __slots__ = ()
 
     @abc.abstractmethod
@@ -60,6 +65,7 @@ class Constraint(abc.ABC, utils.SlotPickleMixin):
         raise NotImplementedError
 
     def reduce(self) -> "Constraint":
+        """Produce a possibly-simpler version of this constraint."""
         # todo: https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
         return self
 
@@ -242,6 +248,8 @@ class ComparisonConstraint(Constraint):
 
 
 class InCluster(ComparisonConstraint):
+    """A :class:`ComparisonConstraint` that targets a single ``ClusterID``."""
+
     __slots__ = ()
 
     def __init__(self, clusterid: int):
