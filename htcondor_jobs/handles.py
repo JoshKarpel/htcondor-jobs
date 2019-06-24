@@ -390,16 +390,19 @@ class ClusterHandle(ConstraintHandle):
 
         return state
 
-    def save(self, path: Path):
+    def save(self, path: Path) -> None:
+        """Save this :class:`ClusterHandle` to a file at `path` for later use (see :method:`ClusterHandle.load`)."""
         with path.open(mode="wb") as f:
             pickle.dump(self, f, protocol=-1)
 
     @classmethod
-    def load(cls, path: Path):
+    def load(cls, path: Path) -> "ClusterHandle":
+        """Load a :class:`ClusterHandle` from a file at `path` that was created by :method:`ClusterHandle.save`."""
         with path.open(mode="rb") as f:
             return pickle.load(f)
 
     def to_json(self) -> dict:
+        """Return a JSON-formatted dictionary that describes the :class:`ClusterHandle`."""
         return dict(
             clusterid=self.clusterid,
             clusterad=str(self.clusterad),
@@ -410,10 +413,11 @@ class ClusterHandle(ConstraintHandle):
         )
 
     @classmethod
-    def from_json(cls, json):
+    def from_json(cls, json: dict):
+        """Return a :class:`ClusterHandle` from the dictionary produced by :method:`ClusterHandle.to_json`."""
         submit_result = _MockSubmitResult(
             clusterid=json["clusterid"],
-            clusterad=classad.parseOne(json["clusterad"]),  # todo: this doesn't work
+            clusterad=classad.parseOne(json["clusterad"]),
             first_proc=json["first_proc"],
             num_procs=json["num_procs"],
         )
@@ -427,7 +431,7 @@ class _MockSubmitResult:
     """
     This class is used purely to transform unpacked submit results back into
     "submit results" to accommodate the :class:`ClusterHandle` constructor.
-    Should not be used in user code.
+    **Should not be used in user code.**
     """
 
     def __init__(self, clusterid, clusterad, first_proc, num_procs):

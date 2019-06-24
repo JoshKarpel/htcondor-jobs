@@ -13,8 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional, Any, Mapping
+
 
 class SlotPickleMixin:
+    """A mixin class which lets classes with __slots__ be pickled."""
+
     __slots__ = ()
 
     def __getstate__(self):
@@ -25,6 +29,35 @@ class SlotPickleMixin:
         state.pop("__weakref__", None)
         return state
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: Mapping):
         for slot, value in state.items():
             object.__setattr__(self, slot, value)
+
+
+def chain_get(mapping: Mapping, *keys: str, default: Optional[Any] = None):
+    """
+    As Mapping.get(key, default), except that it will try multiple keys before returning the default.
+
+    Parameters
+    ----------
+    mapping
+        The :class:`collections.abc.Mapping` to get from.
+    keys
+        The keys to try, in order.
+    default
+        What to return if none of the keys are in the mapping.
+        Defaults to ``None``.
+
+    Returns
+    -------
+    val :
+        The value of the first key that was in the mapping,
+        or the ``default`` if none of the keys were in the mapping.
+    """
+    for k in keys:
+        try:
+            return mapping[k]
+        except KeyError:
+            pass
+
+    return default

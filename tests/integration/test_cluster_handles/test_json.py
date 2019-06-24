@@ -60,4 +60,4 @@ def test_states_are_same(roundtripped_handle):
 
     a.wait(timeout=180)
 
-    assert a.state == b.state
+    assert list(a.state) == list(b.state)

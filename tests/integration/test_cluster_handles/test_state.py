@@ -40,7 +40,7 @@ def test_hold_count(long_sleep, tmp_path):
 
     handle.hold()
 
-    assert handle.state.counts[jobs.JobStatus.HELD] == 1
+    assert handle.state.counts()[jobs.JobStatus.HELD] == 1
 
 
 def test_is_complete(short_sleep):

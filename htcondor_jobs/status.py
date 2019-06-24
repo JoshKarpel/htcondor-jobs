@@ -20,11 +20,11 @@ import array
 import collections
 from pathlib import Path
 import functools
-
-import htcondor
 import weakref
 
-from . import handles, exceptions
+import htcondor
+
+from . import handles, utils, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -58,16 +58,6 @@ JOB_EVENT_STATUS_TRANSITIONS = {
 NO_EVENT_LOG = object()
 
 
-def multiget(mapping, *keys, default=None):
-    for k in keys:
-        try:
-            return mapping[k]
-        except KeyError:
-            pass
-
-    return default
-
-
 def update_before(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -78,6 +68,12 @@ def update_before(func):
 
 
 class ClusterState:
+    """
+    A class that manages the state of the cluster tracked by a :class:`ClusterHandle`.
+    It reads from the cluster's event log internally and provides a variety of views
+    of the individual job states.
+    """
+
     __slots__ = (
         "_handle",
         "_clusterid",
@@ -93,7 +89,7 @@ class ClusterState:
         self._clusterid = handle.clusterid
         self._offset = handle.first_proc
 
-        raw_event_log_path = multiget(
+        raw_event_log_path = utils.chain_get(
             handle.clusterad, "UserLog", "DAGManNodesLog", default=NO_EVENT_LOG
         )
         if raw_event_log_path is NO_EVENT_LOG:
@@ -146,10 +142,12 @@ class ClusterState:
     def __getitem__(self, proc: int) -> JobStatus:
         return self._data[proc - self._offset]
 
-    @property
     @update_before
-    def counts(self):
-        return self._counts
+    def counts(self) -> collections.Counter:
+        """
+        Return the number of jobs in each :class:`JobStatus`, as a :class:`collections.Counter`.
+        """
+        return self._counts.copy()
 
     @update_before
     def __iter__(self):
@@ -166,25 +164,20 @@ class ClusterState:
     def __len__(self):
         return len(self._data)
 
-    @update_before
     def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            other._update()
-            return self._handle == other._handle and self._data == other._data
-
-        return False
+        return isinstance(other, self.__class__) and self._handle == other._handle
 
     def is_complete(self) -> bool:
         """Return ``True`` if **all** of the jobs in the cluster are complete."""
-        return self.counts[JobStatus.COMPLETED] == len(self)
+        return self.counts()[JobStatus.COMPLETED] == len(self)
 
     def any_running(self) -> bool:
         """Return ``True`` if **any** of the jobs in the cluster are running."""
-        return self.counts[JobStatus.RUNNING] > 0
+        return self.counts()[JobStatus.RUNNING] > 0
 
     def any_in_queue(self) -> bool:
         """Return ``True`` if **any** of the jobs in the cluster are still in the queue (idle, running, or held)."""
-        c = self.counts
+        c = self.counts()
         jobs_in_queue = sum(
             (c[JobStatus.IDLE], c[JobStatus.RUNNING], c[JobStatus.HELD])
         )
@@ -192,7 +185,7 @@ class ClusterState:
 
     def any_held(self) -> bool:
         """Return ``True`` if **any** of the jobs in the cluster are held."""
-        return self.counts[JobStatus.HELD] > 0
+        return self.counts()[JobStatus.HELD] > 0
 
 
 class CompactClusterState(ClusterState):
