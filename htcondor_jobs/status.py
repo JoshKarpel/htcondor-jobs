@@ -21,6 +21,7 @@ import collections
 from pathlib import Path
 import functools
 import weakref
+from typing import MutableSequence
 
 import htcondor
 
@@ -72,6 +73,11 @@ class ClusterState:
     A class that manages the state of the cluster tracked by a :class:`ClusterHandle`.
     It reads from the cluster's event log internally and provides a variety of views
     of the individual job states.
+
+    .. warning::
+
+        :class:`ClusterState` objects should not be instantiated manually.
+        :class:`ClusterHandle` will create them automatically when needed.
     """
 
     __slots__ = (
@@ -103,7 +109,7 @@ class ClusterState:
         self._data = self._make_initial_data(handle)
         self._counts = collections.Counter(JobStatus(js) for js in self._data)
 
-    def _make_initial_data(self, handle: "handles.ClusterHandle"):
+    def _make_initial_data(self, handle: "handles.ClusterHandle") -> MutableSequence:
         return [JobStatus.UNMATERIALIZED for _ in range(len(handle))]
 
     def _update(self):
@@ -189,9 +195,20 @@ class ClusterState:
 
 
 class CompactClusterState(ClusterState):
+    """
+    A specialized :class:`ClusterState` that uses a more compact
+    internal data structure for storing job state.
+    """
+
+    # The internal storage is an unsigned byte array.
+    # Because JobStatus is an IntEnum, we can insert JobStatus values directly
+    # as long as they're small.
+    # However, when they come back out, they'll just be integers, and we need
+    # to turn them back into JobStatus.
+
     __slots__ = ()
 
-    def _make_initial_data(self, handle: "handles.ClusterHandle"):
+    def _make_initial_data(self, handle: "handles.ClusterHandle") -> MutableSequence:
         return array.array("B", [JobStatus.UNMATERIALIZED for _ in range(len(handle))])
 
     def __getitem__(self, proc: int):

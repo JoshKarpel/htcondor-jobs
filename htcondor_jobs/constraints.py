@@ -17,7 +17,6 @@ from typing import Union, Iterator, Iterable, Any
 import logging
 
 import abc
-import enum
 import dataclasses
 import itertools
 
@@ -29,14 +28,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-# https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
-
-
-class StrEnum(str, enum.Enum):
-    pass
-
-
-class Operator(StrEnum):
+class Operator(utils.StrEnum):
     Equals = "=="
     NotEquals = "!="
     GreaterEquals = ">="
@@ -68,6 +60,7 @@ class Constraint(abc.ABC, utils.SlotPickleMixin):
         raise NotImplementedError
 
     def reduce(self) -> "Constraint":
+        # todo: https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
         return self
 
     @abc.abstractmethod

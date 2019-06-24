@@ -15,6 +15,12 @@
 
 from typing import Optional, Any, Mapping
 
+import enum
+
+
+class StrEnum(str, enum.Enum):
+    pass
+
 
 class SlotPickleMixin:
     """A mixin class which lets classes with __slots__ be pickled."""
@@ -22,11 +28,17 @@ class SlotPickleMixin:
     __slots__ = ()
 
     def __getstate__(self):
+        # get all the __slots__ in the inheritance tree
+        # if any class has a __dict__, it will be included! no special case needed
         slots = sum((getattr(c, "__slots__", ()) for c in self.__class__.__mro__), ())
+
         state = dict(
             (slot, getattr(self, slot)) for slot in slots if hasattr(self, slot)
         )
+
+        # __weakref__ should always be removed from the state dict
         state.pop("__weakref__", None)
+
         return state
 
     def __setstate__(self, state: Mapping):
