@@ -44,3 +44,61 @@ def test_cannot_combine_handles_with_different_schedulers(combinator):
 
     with pytest.raises(jobs.exceptions.InvalidHandle):
         combinator(h1, h2)
+
+
+@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
+def test_can_combine_handle_with_constraint(combinator):
+    h = jobs.ConstraintHandle(
+        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
+    )
+    c = jobs.ComparisonConstraint("fizz", jobs.Operator.Equals, "buzz")
+
+    combined = combinator(h, c)
+
+    assert isinstance(combined, jobs.ConstraintHandle)
+
+
+@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
+def test_can_combine_handle_with_comparison_constraint_string(combinator):
+    h = jobs.ConstraintHandle(
+        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
+    )
+    c = "fizz == buzz"
+
+    combined = combinator(h, c)
+
+    assert isinstance(combined, jobs.ConstraintHandle)
+
+
+@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
+def test_cannot_combine_handle_with_arbitrary_string(combinator):
+    h = jobs.ConstraintHandle(
+        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
+    )
+    c = "dsifjaodgj"
+
+    with pytest.raises(jobs.exceptions.ExpressionParseFailed):
+        combined = combinator(h, c)
+
+
+@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
+@pytest.mark.parametrize("bad_value", [None, True, 1, 5.5, {}, [], set()])
+def test_cannot_combine_handle_with_other_types(combinator, bad_value):
+    h = jobs.ConstraintHandle(
+        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
+    )
+    c = bad_value
+
+    with pytest.raises(jobs.exceptions.InvalidHandle):
+        combined = combinator(h, c)
+
+
+@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
+def test_cannot_combine_handle_with_bad_operator(combinator):
+    h = jobs.ConstraintHandle(
+        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
+    )
+    c = "foo !?= bar"
+
+    with pytest.raises(jobs.exceptions.ExpressionParseFailed):
+        combined = combinator(h, c)

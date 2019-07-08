@@ -20,6 +20,7 @@ import abc
 import time
 from pathlib import Path
 import pickle
+import operator
 
 import htcondor
 import classad
@@ -73,7 +74,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
     def query(
         self,
         projection: List[str] = None,
-        opts: Optional[htcondor.QueryOpts] = None,
+        options: Optional[htcondor.QueryOpts] = None,
         limit: Optional[int] = None,
     ) -> Iterator[classad.ClassAd]:
         """
@@ -84,7 +85,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
         projection
             The :class:`classad.ClassAd` attributes to retrieve, as a list of case-insensitive strings.
             If ``None`` (the default), all attributes will be returned.
-        opts
+        options
         limit
             The total number of matches to return from the query.
             If ``None`` (the default), return all matches.
@@ -97,8 +98,8 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
         if projection is None:
             projection = []
 
-        if opts is None:
-            opts = htcondor.QueryOpts.Default
+        if options is None:
+            options = htcondor.QueryOpts.Default
 
         if limit is None:
             limit = -1
@@ -107,7 +108,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
         logger.info(
             f"Executing query against schedd {self.schedd} with constraint {cs}, projection {projection}, and limit {limit}"
         )
-        return self.schedd.xquery(cs, projection=projection, opts=opts, limit=limit)
+        return self.schedd.xquery(cs, projection=projection, opts=options, limit=limit)
 
     def _act(self, action: htcondor.JobAction) -> classad.ClassAd:
         cs = self.constraint_string
@@ -249,30 +250,39 @@ class ConstraintHandle(Handle):
             self.constraint.reduce(), collector=self.collector, scheduler=self.scheduler
         )
 
-    def __and__(self, other: "ConstraintHandle") -> "ConstraintHandle":
-        if not all(
-            (self.collector == other.collector, self.scheduler == other.scheduler)
+    def __and__(
+        self, other: Union["ConstraintHandle", constraints.Constraint, str]
+    ) -> "ConstraintHandle":
+        return self._combine(other, operator.and_)
+
+    def __or__(
+        self, other: Union["ConstraintHandle", constraints.Constraint, str]
+    ) -> "ConstraintHandle":
+        return self._combine(other, operator.or_)
+
+    def _combine(
+        self, other: Union["ConstraintHandle", constraints.Constraint, str], combinator
+    ):
+        if isinstance(other, ConstraintHandle) and (
+            self.collector != other.collector or self.scheduler != other.scheduler
         ):
             raise exceptions.InvalidHandle(
                 "Cannot construct a handle for separate schedds"
             )
 
-        return ConstraintHandle(
-            self.constraint & other.constraint,
-            collector=self.collector,
-            scheduler=self.scheduler,
-        )
-
-    def __or__(self, other: "ConstraintHandle") -> "ConstraintHandle":
-        if not all(
-            (self.collector == other.collector, self.scheduler == other.scheduler)
-        ):
+        if isinstance(other, ConstraintHandle):
+            c = other.constraint
+        elif isinstance(other, constraints.Constraint):
+            c = other
+        elif isinstance(other, str):
+            c = constraints.ComparisonConstraint.from_expr(other)
+        else:
             raise exceptions.InvalidHandle(
-                "Cannot construct a handle for separate schedds"
+                f"Cannot construct a combined handle from {self} and {other} because {other} is not a ConstraintHandle, Constraint, or comparison constraint expression"
             )
 
         return ConstraintHandle(
-            self.constraint | other.constraint,
+            combinator(self.constraint, c),
             collector=self.collector,
             scheduler=self.scheduler,
         )

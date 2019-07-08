@@ -96,7 +96,7 @@ class ClusterState:
         self._offset = handle.first_proc
 
         raw_event_log_path = utils.chain_get(
-            handle.clusterad, "UserLog", "DAGManNodesLog", default=NO_EVENT_LOG
+            handle.clusterad, ("UserLog", "DAGManNodesLog"), default=NO_EVENT_LOG
         )
         if raw_event_log_path is NO_EVENT_LOG:
             raise exceptions.NoJobEventLog(

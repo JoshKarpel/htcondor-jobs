@@ -22,7 +22,7 @@ import itertools
 
 import classad
 
-from . import utils
+from . import utils, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -41,6 +41,7 @@ class Operator(utils.StrEnum):
     Less = "<"
     Is = "=?="
     Isnt = "=!="
+    # todo: add meta comparisons
 
 
 @dataclasses.dataclass(frozen=True)
@@ -249,6 +250,24 @@ class ComparisonConstraint(Constraint):
         value: Union[int, float, str, classad.ExprTree],
     ):
         self.expr = Comparison(key, operator, value)
+
+    @classmethod
+    def from_expr(cls, expr):
+        try:
+            key, operator, value = expr.split(" ")
+        except ValueError:
+            raise exceptions.ExpressionParseFailed(
+                f"Comparison expression {expr} was not in the form 'key operator value'"
+            )
+
+        try:
+            operator = Operator(operator)
+        except ValueError as e:
+            raise exceptions.ExpressionParseFailed(
+                f"'{operator}' is not a valid Operator"
+            ) from e
+
+        return cls(key, operator, value)
 
     def __iter__(self) -> Iterator[Constraint]:
         yield self
