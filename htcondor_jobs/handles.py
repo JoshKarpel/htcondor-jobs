@@ -287,16 +287,27 @@ class ConstraintHandle(Handle):
             scheduler=self.scheduler,
         )
 
+    def save(self, path: Path) -> None:
+        """Save this :class:`ConstraintHandle` to a file at ``path`` for later use (see :meth:`ConstraintHandle.load`)."""
+        with path.open(mode="wb") as f:
+            pickle.dump(self, f, protocol=-1)
+
+    @classmethod
+    def load(cls, path: Path) -> "ConstraintHandle":
+        """Load a :class:`ConstraintHandle` from a file at ``path`` that was created by :meth:`ConstraintHandle.save`."""
+        with path.open(mode="rb") as f:
+            return pickle.load(f)
+
 
 COMPACT_STATE_SWITCHOVER_SIZE = 100_000
 
 
 class ClusterHandle(ConstraintHandle):
     """
-    A :class:`ConstraintHandle` that targets a single cluster of jobs,
+    A subclass of :class:`ConstraintHandle` that targets a single cluster of jobs,
     as produced by :func:`submit`.
 
-    Because this handle targets a cluster of jobs, it has superpowers.
+    Because this handle targets a single cluster of jobs, it has superpowers.
     If the cluster has an event log
     (``log = <path>`` in the :class:`SubmitDescription`,
     see `the docs <https://htcondor.readthedocs.io/en/latest/man-pages/condor_submit.html>`_),
@@ -413,17 +424,6 @@ class ClusterHandle(ConstraintHandle):
         state["_state"] = None  # remove state tracker
 
         return state
-
-    def save(self, path: Path) -> None:
-        """Save this :class:`ClusterHandle` to a file at ``path`` for later use (see :meth:`ClusterHandle.load`)."""
-        with path.open(mode="wb") as f:
-            pickle.dump(self, f, protocol=-1)
-
-    @classmethod
-    def load(cls, path: Path) -> "ClusterHandle":
-        """Load a :class:`ClusterHandle` from a file at ``path`` that was created by :meth:`ClusterHandle.save`."""
-        with path.open(mode="rb") as f:
-            return pickle.load(f)
 
     def to_json(self) -> dict:
         """Return a JSON-formatted dictionary that describes the :class:`ClusterHandle`."""
