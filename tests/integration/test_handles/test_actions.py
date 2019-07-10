@@ -15,6 +15,8 @@
 
 import pytest
 
+import time
+
 import htcondor_jobs as jobs
 
 
@@ -28,8 +30,10 @@ def test_hold(long_sleep):
 
     handle.hold()
 
+    time.sleep(5)
+
     status = get_status(handle)
-    assert status == jobs.JobStatus.Held
+    assert status == jobs.JobStatus.HELD
 
 
 @pytest.mark.parametrize(

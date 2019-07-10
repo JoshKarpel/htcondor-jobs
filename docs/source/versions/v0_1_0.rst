@@ -1,0 +1,16 @@
+v0.1.0
+======
+
+New Features
+------------
+
+* Clusters of jobs can be described and submitted, returning a handle.
+* Handles can be used to query, act on, or edit the jobs they are connected to.
+
+
+Bug Fixes
+---------
+
+
+Known Issues
+------------

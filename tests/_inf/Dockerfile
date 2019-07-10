@@ -83,15 +83,15 @@ RUN pip install --no-cache -r /home/${SUBMIT_USER}/requirements_dev.txt \
 
 # set default entrypoint and command
 # the entrypoint is critical: it starts HTCondor in the container
-ENTRYPOINT ["docker/entrypoint.sh"]
+ENTRYPOINT ["tests/_inf/entrypoint.sh"]
 CMD ["pytest"]
 
 # copy HTCondor testing config into place
-COPY docker/condor_config.local /etc/condor/condor_config.local
+COPY tests/_inf/condor_config.local /etc/condor/condor_config.local
 
 # copy package into container and install it
 # this is the only part that can't be cached against editing the package
 COPY --chown=jobber:jobber . /home/${SUBMIT_USER}/htcondor-jobs
 WORKDIR /home/${SUBMIT_USER}/htcondor-jobs
-RUN chmod +x /home/${SUBMIT_USER}/htcondor-jobs/docker/entrypoint.sh /home/${SUBMIT_USER}/htcondor-jobs/tests/travis.sh \
- && pip install --no-cache --no-deps -e .
+RUN chmod +x /home/${SUBMIT_USER}/htcondor-jobs/tests/_inf/entrypoint.sh /home/${SUBMIT_USER}/htcondor-jobs/tests/travis.sh \
+ && pip install --no-cache-dir --no-deps -e .

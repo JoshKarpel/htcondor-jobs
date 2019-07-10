@@ -14,36 +14,32 @@
 # limitations under the License.
 
 import pytest
-import os
+import time
 
 import htcondor_jobs as jobs
-from htcondor_jobs.locate import SCHEDD_CACHE
-
-
-@pytest.fixture(scope="function", autouse=True)
-def clear_schedd_cache():
-    SCHEDD_CACHE.clear()
-
-
-@pytest.fixture(scope="function", autouse=True)
-def clear_queue():
-    yield
-    os.system("condor_rm --all")
 
 
 @pytest.fixture(scope="function")
-def long_sleep(tmp_path):
-    return jobs.SubmitDescription(
-        executable="/bin/sleep",
-        arguments="5m",
-        log=(tmp_path / "events.log").as_posix(),
-    )
+def roundtripped_handle(short_sleep, tmp_path):
+    path = tmp_path / "handle.pkl"
+    a = jobs.submit(short_sleep)
+
+    a.save(path)
+    b = jobs.ClusterHandle.load(path)
+
+    return a, b
 
 
-@pytest.fixture(scope="function")
-def short_sleep(tmp_path):
-    return jobs.SubmitDescription(
-        executable="/bin/sleep",
-        arguments="1s",
-        log=(tmp_path / "events.log").as_posix(),
-    )
+def test_save_then_load_is_equal_and_same_hash(roundtripped_handle):
+    a, b = roundtripped_handle
+
+    assert a == b
+    assert hash(a) == hash(b)
+
+
+def test_states_are_same(roundtripped_handle):
+    a, b = roundtripped_handle
+
+    a.wait(timeout=180)
+
+    assert list(a.state) == list(b.state)

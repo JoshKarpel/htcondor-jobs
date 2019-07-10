@@ -21,15 +21,35 @@ import classad
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
-T_SUBMIT_VALUE = Union[str, int, float, classad.ExprTree]
+T_SUBMIT_VALUE = Union[str, int, float, bool, classad.ExprTree]
 
 
 class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
+    """
+    Describes a single cluster of jobs.
+    The description behaves like a dictionary of key-values pairs,
+    where each pair is a submit descriptor
+    (see `the manual <https://htcondor.readthedocs.io/en/latest/man-pages/condor_submit.html#submit-description-file-commands>`_).
+    :class:`SubmitDescription` supports the standard dictionary methods such as
+    ``get``, ``setdefault``, ``keys``, ``items``, etc.,
+    as well as the ``[]`` operator for both getting and setting.
+    """
+
+    __slots__ = ("_descriptors",)
+
     def __init__(
         self, mapping: Optional[Mapping] = None, **descriptors: T_SUBMIT_VALUE
     ):
+        """
+        Parameters
+        ----------
+        mapping
+            An optional mapping which provides initial key-value pairs for the
+            description.
+        descriptors
+            Additional submit descriptors, provided as keyword arguments.
+        """
         if mapping is None:
             mapping = {}
         self._descriptors = dict(mapping, **descriptors)
@@ -54,4 +74,15 @@ class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
         return "\n".join(f"{k} = {v}" for k, v in self.items())
 
     def as_submit(self) -> htcondor.Submit:
+        """
+        Generate a :class:`htcondor.Submit`
+        from this :class:`SubmitDescription`.
+        """
         return htcondor.Submit(str(self))
+
+    def copy(self, **descriptors):
+        """
+        Produce a copy of this :class:`SubmitDescription`,
+        with the given ``descriptors`` changed.
+        """
+        return self.__class__(self._descriptors, **descriptors)

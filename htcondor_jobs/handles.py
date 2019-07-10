@@ -13,27 +13,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Union, Iterator, Any
+from typing import List, Optional, Union, Iterator, Any, Callable
 import logging
 
 import abc
+import time
+from pathlib import Path
+import pickle
+import operator
 
 import htcondor
 import classad
 
-from . import constraints, locate, exceptions
-
+from . import constraints, locate, status, utils, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 
-class Handle(abc.ABC):
+class Handle(abc.ABC, utils.SlotPickleMixin):
     """
-    A handle for a group of jobs defined by a constraint, given as a string.
+    A connection to a set of jobs defined by a constraint.
     The handle can be used to query, act on, or edit those jobs.
     """
+
+    __slots__ = ("collector", "scheduler", "__weakref__")
 
     def __init__(
         self, collector: Optional[str] = None, scheduler: Optional[str] = None
@@ -46,7 +50,22 @@ class Handle(abc.ABC):
         raise NotImplementedError
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.constraint_string})"
+        return f"{self.__class__.__name__}(constraint = {self.constraint_string})"
+
+    def __eq__(self, other):
+        return all(
+            (
+                isinstance(other, self.__class__),
+                self.constraint_string == other.constraint_string,
+                self.collector == other.collector,
+                self.scheduler == other.scheduler,
+            )
+        )
+
+    def __hash__(self):
+        return hash(
+            (self.__class__, self.constraint_string, self.collector, self.scheduler)
+        )
 
     @property
     def schedd(self):
@@ -55,7 +74,7 @@ class Handle(abc.ABC):
     def query(
         self,
         projection: List[str] = None,
-        opts: Optional[htcondor.QueryOpts] = None,
+        options: Optional[htcondor.QueryOpts] = None,
         limit: Optional[int] = None,
     ) -> Iterator[classad.ClassAd]:
         """
@@ -66,21 +85,21 @@ class Handle(abc.ABC):
         projection
             The :class:`classad.ClassAd` attributes to retrieve, as a list of case-insensitive strings.
             If ``None`` (the default), all attributes will be returned.
-        opts
+        options
         limit
             The total number of matches to return from the query.
             If ``None`` (the default), return all matches.
 
         Returns
         -------
-        ads :
+        ads : Iterator[:class:`classad.ClassAd`]
             An iterator over the :class:`classad.ClassAd` that match the constraint.
         """
         if projection is None:
             projection = []
 
-        if opts is None:
-            opts = htcondor.QueryOpts.Default
+        if options is None:
+            options = htcondor.QueryOpts.Default
 
         if limit is None:
             limit = -1
@@ -89,7 +108,7 @@ class Handle(abc.ABC):
         logger.info(
             f"Executing query against schedd {self.schedd} with constraint {cs}, projection {projection}, and limit {limit}"
         )
-        return self.schedd.xquery(cs, projection=projection, opts=opts, limit=limit)
+        return self.schedd.xquery(cs, projection=projection, opts=options, limit=limit)
 
     def _act(self, action: htcondor.JobAction) -> classad.ClassAd:
         cs = self.constraint_string
@@ -104,7 +123,7 @@ class Handle(abc.ABC):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Remove)
@@ -115,7 +134,7 @@ class Handle(abc.ABC):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Hold)
@@ -127,7 +146,7 @@ class Handle(abc.ABC):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Release)
@@ -139,7 +158,7 @@ class Handle(abc.ABC):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Suspend)
@@ -150,7 +169,7 @@ class Handle(abc.ABC):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Continue)
@@ -162,7 +181,7 @@ class Handle(abc.ABC):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the action.
         """
         return self._act(htcondor.JobAction.Vacate)
@@ -187,7 +206,7 @@ class Handle(abc.ABC):
 
         Returns
         -------
-        ad
+        ad : :class:`classad.ClassAd`
             An ad describing the results of the edit.
         """
         cs = self.constraint_string
@@ -199,8 +218,11 @@ class Handle(abc.ABC):
 
 class ConstraintHandle(Handle):
     """
-    A handle defined by a :class:`constraints.Constraint`.
+    A connection to a set of jobs defined by a :class:`Constraint`.
+    The handle can be used to query, act on, or edit those jobs.
     """
+
+    __slots__ = ("_constraint",)
 
     def __init__(
         self,
@@ -220,82 +242,236 @@ class ConstraintHandle(Handle):
     def constraint_string(self) -> str:
         return str(self.constraint)
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}(constraint = {self.constraint})"
+
     def reduce(self) -> "ConstraintHandle":
         return ConstraintHandle(
             self.constraint.reduce(), collector=self.collector, scheduler=self.scheduler
         )
 
-    def __and__(self, other: "ConstraintHandle") -> "ConstraintHandle":
-        if not all(
-            (self.collector == other.collector, self.scheduler == other.scheduler)
+    def __and__(
+        self, other: Union["ConstraintHandle", constraints.Constraint, str]
+    ) -> "ConstraintHandle":
+        return self._combine(other, operator.and_)
+
+    def __or__(
+        self, other: Union["ConstraintHandle", constraints.Constraint, str]
+    ) -> "ConstraintHandle":
+        return self._combine(other, operator.or_)
+
+    def _combine(
+        self, other: Union["ConstraintHandle", constraints.Constraint, str], combinator
+    ):
+        if isinstance(other, ConstraintHandle) and (
+            self.collector != other.collector or self.scheduler != other.scheduler
         ):
             raise exceptions.InvalidHandle(
                 "Cannot construct a handle for separate schedds"
             )
 
-        return ConstraintHandle(
-            self.constraint & other.constraint,
-            collector=self.collector,
-            scheduler=self.scheduler,
-        )
-
-    def __or__(self, other: "ConstraintHandle") -> "ConstraintHandle":
-        if not all(
-            (self.collector == other.collector, self.scheduler == other.scheduler)
-        ):
+        if isinstance(other, ConstraintHandle):
+            c = other.constraint
+        elif isinstance(other, constraints.Constraint):
+            c = other
+        elif isinstance(other, str):
+            c = constraints.ComparisonConstraint.from_expr(other)
+        else:
             raise exceptions.InvalidHandle(
-                "Cannot construct a handle for separate schedds"
+                f"Cannot construct a combined handle from {self} and {other} because {other} is not a ConstraintHandle, Constraint, or comparison constraint expression"
             )
 
         return ConstraintHandle(
-            self.constraint | other.constraint,
+            combinator(self.constraint, c),
             collector=self.collector,
             scheduler=self.scheduler,
         )
 
-    def __eq__(self, other: Any) -> bool:
-        return all(
-            (
-                isinstance(other, ConstraintHandle),
-                self.constraint == other.constraint,
-                self.collector == other.collector,
-                self.scheduler == other.scheduler,
-            )
-        )
+    def save(self, path: Path) -> None:
+        """Save this :class:`ConstraintHandle` to a file at ``path`` for later use (see :meth:`ConstraintHandle.load`)."""
+        with path.open(mode="wb") as f:
+            pickle.dump(self, f, protocol=-1)
+
+    @classmethod
+    def load(cls, path: Path) -> "ConstraintHandle":
+        """Load a :class:`ConstraintHandle` from a file at ``path`` that was created by :meth:`ConstraintHandle.save`."""
+        with path.open(mode="rb") as f:
+            return pickle.load(f)
+
+
+COMPACT_STATE_SWITCHOVER_SIZE = 100_000
 
 
 class ClusterHandle(ConstraintHandle):
+    """
+    A subclass of :class:`ConstraintHandle` that targets a single cluster of jobs,
+    as produced by :func:`submit`.
+
+    Because this handle targets a single cluster of jobs, it has superpowers.
+    If the cluster has an event log
+    (``log = <path>`` in the :class:`SubmitDescription`,
+    see `the docs <https://htcondor.readthedocs.io/en/latest/man-pages/condor_submit.html>`_),
+    this handle's ``state`` attribute will be a :class:`ClusterState` that provides
+    information about the current state of the jobs in the cluster.
+    """
+
+    __slots__ = ("clusterid", "clusterad", "_first_proc", "_num_procs", "_state")
+
     def __init__(
         self,
-        clusterid: int,
-        clusterad: Optional[classad.ClassAd] = None,
+        submit_result: htcondor.SubmitResult,
         collector: Optional[str] = None,
         scheduler: Optional[str] = None,
     ):
+        self.clusterid = submit_result.cluster()
+        self.clusterad = submit_result.clusterad()
+        self._first_proc = submit_result.first_proc()
+        self._num_procs = submit_result.num_procs()
+
         super().__init__(
-            constraint=constraints.InCluster(clusterid),
+            constraint=constraints.InCluster(self.clusterid),
             collector=collector,
             scheduler=scheduler,
         )
 
-        self.clusterid = clusterid
-
-        if clusterad is None:
-            # try to get the clusterad from the schedd
-            try:
-                clusterad = next(self.query(opts=htcondor.QueryOpts(0x10), limit=1))
-            except IndexError:
-                # no clusterad in the schedd
-                # try to get a jobad from the schedd's history
-                try:
-                    clusterad = next(self.schedd.history(self.constraint_string, [], 1))
-                except StopIteration:
-                    clusterad = None
-        self.clusterad = clusterad
-
-    @classmethod
-    def from_submit_result(cls, result: htcondor.SubmitResult) -> "ClusterHandle":
-        return cls(clusterid=result.cluster(), clusterad=result.clusterad())
+        # must delay this until after init, because at this point the submit
+        # transaction may not be done yet
+        self._state = None
 
     def __int__(self):
         return self.clusterid
+
+    def __repr__(self):
+        batch_name = self.clusterad.get("JobBatchName", None)
+        batch = f", JobBatchName = {batch_name}" if batch_name is not None else ""
+        return f"{self.__class__.__name__}(ClusterID = {self.clusterid}{batch})"
+
+    def __len__(self):
+        return self._num_procs
+
+    @property
+    def first_proc(self):
+        return self._first_proc
+
+    @property
+    def state(self) -> status.ClusterState:
+        """A :class:`ClusterState` that provides information about job state for this cluster."""
+        if self._state is None:
+            if len(self) > COMPACT_STATE_SWITCHOVER_SIZE:
+                state_type = status.CompactClusterState
+            else:
+                state_type = status.ClusterState
+
+            self._state = state_type(self)
+
+        return self._state
+
+    def wait(
+        self,
+        condition: Callable[["ClusterHandle"], bool] = None,
+        timeout: Optional[Union[int, float]] = None,
+        test_delay: Union[int, float] = 0.25,
+    ) -> float:
+        """
+        Wait for some condition to be satisfied.
+        By default, this waits until all of the jobs in the cluster are complete,
+        equivalent to
+
+        .. code:: python
+
+            handle.wait(
+                condition = lambda hnd: hnd.state.is_complete()
+            )
+
+        Where possible, for increased efficiency, use :class:`ClusterState` methods or
+        status counts instead of raw job statuses to determine the state of the
+        cluster.
+
+        Parameters
+        ----------
+        condition
+            A callable that defines the state to wait for.
+            It will be called with the :class:`ClusterHandle` as its only argument,
+            and when it returns ``True``, ``wait_for_condition`` will complete.
+            **The default condition is to wait for all jobs to be :class:`JobStatus.COMPLETED`.**
+        timeout
+            The maximum amount of time to wait before raising a
+            :class:`exceptions.WaitedTooLong` exception.
+            **The ``condition`` will always be checked at least once, even if ``timeout <= 0``**.
+        test_delay
+            The amount of time to wait between test loops.
+
+        Returns
+        -------
+        elapsed_time :
+            The amount of time spent waiting.
+        """
+        if condition is None:
+            condition = lambda hnd: hnd.state.is_complete()
+
+        start_time = time.time()
+        while not condition(self):
+            if timeout is not None and time.time() > start_time + timeout:
+                raise exceptions.Timeout(
+                    f"waited too long for handle {self} to satisfy {condition}"
+                )
+            time.sleep(test_delay)
+        return time.time() - start_time
+
+    def __getstate__(self):
+        state = super().__getstate__()
+
+        state["_state"] = None  # remove state tracker
+
+        return state
+
+    def to_json(self) -> dict:
+        """Return a JSON-formatted dictionary that describes the :class:`ClusterHandle`."""
+        return dict(
+            clusterid=self.clusterid,
+            clusterad=str(self.clusterad),
+            first_proc=self.first_proc,
+            num_procs=len(self),
+            collector=self.collector,
+            scheduler=self.scheduler,
+        )
+
+    @classmethod
+    def from_json(cls, json: dict):
+        """Return a :class:`ClusterHandle` from the dictionary produced by :meth:`ClusterHandle.to_json`."""
+        submit_result = _MockSubmitResult(
+            clusterid=json["clusterid"],
+            clusterad=classad.parseOne(json["clusterad"]),
+            first_proc=json["first_proc"],
+            num_procs=json["num_procs"],
+        )
+
+        return cls(
+            submit_result, collector=json["collector"], scheduler=json["scheduler"]
+        )
+
+
+class _MockSubmitResult:
+    """
+    This class is used purely to transform unpacked submit results back into
+    "submit results" to accommodate the :class:`ClusterHandle` constructor.
+    **Should not be used in user code.**
+    """
+
+    def __init__(self, clusterid, clusterad, first_proc, num_procs):
+        self._clusterid = clusterid
+        self._clusterad = clusterad
+        self._first_proc = first_proc
+        self._num_procs = num_procs
+
+    def cluster(self):
+        return self._clusterid
+
+    def clusterad(self):
+        return self._clusterad
+
+    def first_proc(self):
+        return self._first_proc
+
+    def num_procs(self):
+        return self._num_procs

@@ -28,3 +28,15 @@ class InvalidHandle(JobsException):
 
 class UninitializedTransaction(JobsException):
     pass
+
+
+class NoJobEventLog(JobsException):
+    pass
+
+
+class Timeout(JobsException):
+    pass
+
+
+class ExpressionParseFailed(JobsException):
+    pass

@@ -41,18 +41,19 @@ def version_info() -> _Tuple[int, int, int, str]:
 
 from .constraints import (
     Constraint,
-    ComparisonConstraint,
-    Operator,
-    Comparison,
     BooleanConstraint,
     true,
     false,
     And,
     Or,
     Not,
+    Operator,
+    Comparison,
+    ComparisonConstraint,
+    InCluster,
 )
 from .handles import Handle, ConstraintHandle, ClusterHandle
 from .descriptions import SubmitDescription
 from .submit import submit, Transaction
-from .status import JobStatus
+from .status import JobStatus, ClusterState
 from . import exceptions

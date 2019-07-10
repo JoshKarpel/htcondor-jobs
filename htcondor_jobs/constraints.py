@@ -17,25 +17,22 @@ from typing import Union, Iterator, Iterable, Any
 import logging
 
 import abc
-import enum
 import dataclasses
 import itertools
 
 import classad
 
+from . import utils, exceptions
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 
-# https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
+class Operator(utils.StrEnum):
+    """
+    An enumeration of the possible ClassAd comparison operators.
+    """
 
-
-class StrEnum(str, enum.Enum):
-    pass
-
-
-class Operator(StrEnum):
     Equals = "=="
     NotEquals = "!="
     GreaterEquals = ">="
@@ -44,10 +41,13 @@ class Operator(StrEnum):
     Less = "<"
     Is = "=?="
     Isnt = "=!="
+    # todo: add meta comparisons
 
 
 @dataclasses.dataclass(frozen=True)
-class Comparison:
+class Comparison(utils.SlotPickleMixin):
+    __slots__ = ("left", "operator", "right")
+
     left: str
     operator: Operator
     right: Union[str, int, float, classad.ExprTree]
@@ -57,12 +57,18 @@ def flatten(iterables):
     return itertools.chain.from_iterable(iterables)
 
 
-class Constraint(abc.ABC):
+class Constraint(abc.ABC, utils.SlotPickleMixin):
+    """An object that represents an HTCondor constraint expression."""
+
+    __slots__ = ()
+
     @abc.abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError
 
     def reduce(self) -> "Constraint":
+        """Produce a possibly-simpler version of this constraint."""
+        # todo: https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
         return self
 
     @abc.abstractmethod
@@ -90,6 +96,8 @@ class Constraint(abc.ABC):
 
 
 class BooleanConstraint(Constraint):
+    __slots__ = ()
+
     def __iter__(self) -> Iterator["BooleanConstraint"]:
         yield self
 
@@ -102,6 +110,8 @@ class BooleanConstraint(Constraint):
 
 
 class _true(BooleanConstraint):
+    __slots__ = ()
+
     def __str__(self) -> str:
         return "true"
 
@@ -113,6 +123,8 @@ class _true(BooleanConstraint):
 
 
 class _false(BooleanConstraint):
+    __slots__ = ()
+
     def __str__(self) -> str:
         return "false"
 
@@ -128,7 +140,9 @@ true = _true()
 false = _false()
 
 
-class MultiConstraint(Constraint):
+class MultiConstraint(Constraint, abc.ABC):
+    __slots__ = ("_constraints",)
+
     def __init__(self, *constraints: Union[Constraint, Iterable[Constraint]]):
         self._constraints = list(flatten(constraints))
 
@@ -160,6 +174,13 @@ class MultiConstraint(Constraint):
 
 
 class And(MultiConstraint):
+    """
+    A constraint that evaluates to ``true`` only if all of the given
+    ``constraints`` evaluate to ``true``.
+    """
+
+    __slots__ = ()
+
     def __str__(self) -> str:
         return " && ".join(f"({c})" for c in self)
 
@@ -172,6 +193,13 @@ class And(MultiConstraint):
 
 
 class Or(MultiConstraint):
+    """
+    A constraint that evaluates to ``true`` if any of the given
+    ``constraints`` evaluate to ``true``.
+    """
+
+    __slots__ = ()
+
     def __str__(self) -> str:
         return " || ".join(f"({c})" for c in self)
 
@@ -184,8 +212,15 @@ class Or(MultiConstraint):
 
 
 class Not(Constraint):
+    """
+    A constraint which evaluates to ``true`` if the given
+    ``constraint`` evaluates to ``false``.
+    """
+
+    __slots__ = ("_constraint",)
+
     def __init__(self, constraint: Constraint):
-        self.constraint = constraint
+        self._constraint = constraint
 
     def __iter__(self) -> Iterator[Constraint]:
         yield self
@@ -194,18 +229,20 @@ class Not(Constraint):
         return 1
 
     def __str__(self) -> str:
-        return f"!({self.constraint})"
+        return f"!({self._constraint})"
 
     def reduce(self) -> "Constraint":
-        if self.constraint is true:
+        if self._constraint is true:
             return false
-        elif self.constraint is false:
+        elif self._constraint is false:
             return true
 
         return super().reduce()
 
 
 class ComparisonConstraint(Constraint):
+    __slots__ = ("expr",)
+
     def __init__(
         self,
         key: str,
@@ -213,6 +250,24 @@ class ComparisonConstraint(Constraint):
         value: Union[int, float, str, classad.ExprTree],
     ):
         self.expr = Comparison(key, operator, value)
+
+    @classmethod
+    def from_expr(cls, expr):
+        try:
+            key, operator, value = expr.split(" ")
+        except ValueError:
+            raise exceptions.ExpressionParseFailed(
+                f"Comparison expression {expr} was not in the form 'key operator value'"
+            )
+
+        try:
+            operator = Operator(operator)
+        except ValueError as e:
+            raise exceptions.ExpressionParseFailed(
+                f"'{operator}' is not a valid Operator"
+            ) from e
+
+        return cls(key, operator, value)
 
     def __iter__(self) -> Iterator[Constraint]:
         yield self
@@ -228,5 +283,9 @@ class ComparisonConstraint(Constraint):
 
 
 class InCluster(ComparisonConstraint):
+    """A :class:`ComparisonConstraint` that targets a single ``ClusterID``."""
+
+    __slots__ = ()
+
     def __init__(self, clusterid: int):
         super().__init__(key="ClusterId", operator=Operator.Equals, value=clusterid)

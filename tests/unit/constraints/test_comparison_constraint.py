@@ -39,3 +39,20 @@ def test_len():
     c = jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0)
 
     assert len(c) == 1
+
+
+@pytest.mark.parametrize(
+    "c, t",
+    [
+        (jobs.ComparisonConstraint("foo", jobs.Operator.Equals, 0), "foo == 0"),
+        (jobs.ComparisonConstraint("foo", jobs.Operator.NotEquals, 0), "foo != 0"),
+        (jobs.ComparisonConstraint("foo", jobs.Operator.Greater, 0), "foo > 0"),
+        (jobs.ComparisonConstraint("foo", jobs.Operator.GreaterEquals, 0), "foo >= 0"),
+        (jobs.ComparisonConstraint("foo", jobs.Operator.Less, 0), "foo < 0"),
+        (jobs.ComparisonConstraint("foo", jobs.Operator.LessEquals, 0), "foo <= 0"),
+        (jobs.ComparisonConstraint("foo", jobs.Operator.Is, 0), "foo =?= 0"),
+        (jobs.ComparisonConstraint("foo", jobs.Operator.Isnt, 0), "foo =!= 0"),
+    ],
+)
+def test_from_expr(c, t):
+    assert jobs.ComparisonConstraint.from_expr(t) == c

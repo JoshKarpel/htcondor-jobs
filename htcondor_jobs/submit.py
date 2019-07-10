@@ -24,7 +24,6 @@ from . import descriptions, handles, locate, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 T_ITEMDATA = Union[str, int, float]
 T_ITEMDATA_MAPPING = Mapping[str, T_ITEMDATA]
@@ -40,7 +39,28 @@ def submit(
     itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
     collector: Optional[str] = None,
     scheduler: Optional[str] = None,
-) -> handles.ConstraintHandle:
+) -> handles.ClusterHandle:
+    """
+    Submit a single cluster of jobs based on a submit description.
+    If you are submitting many clusters at once,
+    you should do so on a single :class:`Transaction`.
+
+    Parameters
+    ----------
+    description
+        A submit description.
+    count
+        The number of jobs to submit **for each element of the itemdata**.
+        If ``itemdata`` is ``None``, this is the total number of jobs to submit.
+    itemdata
+    collector
+    scheduler
+
+    Returns
+    -------
+    handle : :class:`ClusterHandle`
+        A handle connected to the jobs that were submitted.
+    """
     with Transaction(collector=collector, scheduler=scheduler) as txn:
         handle = txn.submit(description, count, itemdata)
 
@@ -48,9 +68,21 @@ def submit(
 
 
 class Transaction:
+    __slots__ = ("collector", "scheduler", "_schedd", "_txn")
+
     def __init__(
         self, collector: Optional[str] = None, scheduler: Optional[str] = None
     ):
+        """
+        Open a transaction with a schedd.
+        If you are submitting many clusters at once,
+        you should do so on a single transaction.
+
+        Parameters
+        ----------
+        collector
+        scheduler
+        """
         self.collector = collector
         self.scheduler = scheduler
 
@@ -62,10 +94,15 @@ class Transaction:
         description: descriptions.SubmitDescription,
         count: Optional[int] = 1,
         itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
-    ) -> handles.ConstraintHandle:
+    ) -> handles.ClusterHandle:
+        """
+        Identical to :func:`submit`,
+        except without the ``collector`` and ``scheduler`` arguments,
+        which are instead given to the :class:`Transaction`.
+        """
         if any((self._schedd is None, self._txn is None)):
             raise exceptions.UninitializedTransaction(
-                "the transaction has not been initialized (use it as a context manager)"
+                "the Transaction has not been initialized (use it as a context manager)"
             )
 
         sub = description.as_submit()
@@ -78,7 +115,9 @@ class Transaction:
             itemdata_msg = ""
 
         result = sub.queue_with_itemdata(self._txn, count, itemdata)
-        handle = handles.ClusterHandle.from_submit_result(result)
+        handle = handles.ClusterHandle(
+            result, collector=self.collector, scheduler=self.scheduler
+        )
 
         logger.info(
             f"Submitted {repr(sub)} to {self._schedd} on transaction {self._txn} with count {count}{itemdata_msg}"
@@ -99,14 +138,14 @@ class Transaction:
 
 def check_itemdata(itemdata: List[T_ITEMDATA_ELEMENT]) -> None:
     if len(itemdata) < 1:
-        raise exceptions.InvalidItemdata("empty itemdata")
+        raise exceptions.InvalidItemdata("empty itemdata, pass itemdata = None instead")
 
-    if isinstance(itemdata[0], collections.abc.Mapping):
+    if all(isinstance(item, collections.abc.Mapping) for item in itemdata):
         return _check_itemdata_as_mappings(itemdata)
-    elif isinstance(itemdata[0], collections.abc.Sequence):
+    elif all(isinstance(item, collections.abc.Sequence) for item in itemdata):
         return _check_itemdata_as_sequences(itemdata)
 
-    raise exceptions.InvalidItemdata("illegal itemdata type")
+    raise exceptions.InvalidItemdata(f"mixed or illegal itemdata types")
 
 
 def _check_itemdata_as_mappings(itemdata: List[T_ITEMDATA_MAPPING]) -> None:

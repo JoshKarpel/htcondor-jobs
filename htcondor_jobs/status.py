@@ -16,17 +16,200 @@
 import logging
 
 import enum
+import array
+import collections
+from pathlib import Path
+import functools
+import weakref
+from typing import MutableSequence
 
+import htcondor
+
+from . import handles, utils, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.NullHandler())
 
 
 class JobStatus(enum.IntEnum):
-    Idle = 1
-    Running = 2
-    Removed = 3
-    Completed = 4
-    Held = 5
-    TransferringOutput = 6
+    IDLE = 1
+    RUNNING = 2
+    REMOVED = 3
+    COMPLETED = 4
+    HELD = 5
+    TRANSFERRING_OUTPUT = 6
+    SUSPENDED = 7  # todo: ?
+    UNMATERIALIZED = 100
+
+
+JOB_EVENT_STATUS_TRANSITIONS = {
+    htcondor.JobEventType.SUBMIT: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_EVICTED: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_UNSUSPENDED: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_RELEASED: JobStatus.IDLE,
+    htcondor.JobEventType.SHADOW_EXCEPTION: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_RECONNECT_FAILED: JobStatus.IDLE,
+    htcondor.JobEventType.JOB_TERMINATED: JobStatus.COMPLETED,
+    htcondor.JobEventType.EXECUTE: JobStatus.RUNNING,
+    htcondor.JobEventType.JOB_HELD: JobStatus.HELD,
+    htcondor.JobEventType.JOB_SUSPENDED: JobStatus.SUSPENDED,
+    htcondor.JobEventType.JOB_ABORTED: JobStatus.REMOVED,
+}
+
+NO_EVENT_LOG = object()
+
+
+def update_before(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        self._update()
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+class ClusterState:
+    """
+    A class that manages the state of the cluster tracked by a :class:`ClusterHandle`.
+    It reads from the cluster's event log internally and provides a variety of views
+    of the individual job states.
+
+    .. warning::
+
+        :class:`ClusterState` objects should not be instantiated manually.
+        :class:`ClusterHandle` will create them automatically when needed.
+    """
+
+    __slots__ = (
+        "_handle",
+        "_clusterid",
+        "_offset",
+        "_event_log_path",
+        "_events",
+        "_data",
+        "_counts",
+    )
+
+    def __init__(self, handle: "handles.ClusterHandle"):
+        self._handle = weakref.proxy(handle)
+        self._clusterid = handle.clusterid
+        self._offset = handle.first_proc
+
+        raw_event_log_path = utils.chain_get(
+            handle.clusterad, ("UserLog", "DAGManNodesLog"), default=NO_EVENT_LOG
+        )
+        if raw_event_log_path is NO_EVENT_LOG:
+            raise exceptions.NoJobEventLog(
+                "this cluster does not have a job event log, so it cannot track job state"
+            )
+        self._event_log_path = Path(raw_event_log_path).absolute()
+
+        self._events = None
+
+        self._data = self._make_initial_data(handle)
+        self._counts = collections.Counter(JobStatus(js) for js in self._data)
+
+    def _make_initial_data(self, handle: "handles.ClusterHandle") -> MutableSequence:
+        return [JobStatus.UNMATERIALIZED for _ in range(len(handle))]
+
+    def _update(self):
+        logger.debug(f"triggered status update for handle {self._handle}")
+
+        if self._events is None:
+            logger.debug(
+                f"looking for event log for handle {self._handle} at {self._event_log_path}"
+            )
+            self._events = htcondor.JobEventLog(self._event_log_path.as_posix()).events(
+                0
+            )
+            logger.debug(
+                f"initialized event log reader for handle {self._handle}, targeting {self._event_log_path}"
+            )
+
+        for event in self._events:
+            if event.cluster != self._clusterid:
+                continue
+
+            new_status = JOB_EVENT_STATUS_TRANSITIONS.get(event.type, None)
+            if new_status is not None:
+                key = event.proc - self._offset
+
+                # update counts
+                old_status = self._data[key]
+                self._counts[old_status] -= 1
+                self._counts[new_status] += 1
+
+                # set new status on individual job
+                self._data[key] = new_status
+
+        logger.debug(f"new status counts for {self._handle}: {self._counts}")
+
+    @update_before
+    def __getitem__(self, proc: int) -> JobStatus:
+        return self._data[proc - self._offset]
+
+    @update_before
+    def counts(self) -> collections.Counter:
+        """
+        Return the number of jobs in each :class:`JobStatus`, as a :class:`collections.Counter`.
+        """
+        return self._counts.copy()
+
+    @update_before
+    def __iter__(self):
+        yield from self._data
+
+    @update_before
+    def __str__(self):
+        return str(self._data)
+
+    @update_before
+    def __repr__(self):
+        return repr(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self._handle == other._handle
+
+    def is_complete(self) -> bool:
+        """Return ``True`` if **all** of the jobs in the cluster are complete."""
+        return self.counts()[JobStatus.COMPLETED] == len(self)
+
+    def any_running(self) -> bool:
+        """Return ``True`` if **any** of the jobs in the cluster are running."""
+        return self.counts()[JobStatus.RUNNING] > 0
+
+    def any_in_queue(self) -> bool:
+        """Return ``True`` if **any** of the jobs in the cluster are still in the queue (idle, running, or held)."""
+        c = self.counts()
+        jobs_in_queue = sum(
+            (c[JobStatus.IDLE], c[JobStatus.RUNNING], c[JobStatus.HELD])
+        )
+        return jobs_in_queue > 0
+
+    def any_held(self) -> bool:
+        """Return ``True`` if **any** of the jobs in the cluster are held."""
+        return self.counts()[JobStatus.HELD] > 0
+
+
+class CompactClusterState(ClusterState):
+    """
+    A specialized :class:`ClusterState` that uses a more compact
+    internal data structure for storing job state.
+    """
+
+    # The internal storage is an unsigned byte array.
+    # Because JobStatus is an IntEnum, we can insert JobStatus values directly
+    # as long as they're small.
+    # However, when they come back out, they'll just be integers, and we need
+    # to turn them back into JobStatus.
+
+    __slots__ = ()
+
+    def _make_initial_data(self, handle: "handles.ClusterHandle") -> MutableSequence:
+        return array.array("B", [JobStatus.UNMATERIALIZED for _ in range(len(handle))])
+
+    def __getitem__(self, proc: int):
+        return JobStatus(super().__getitem__(proc))
