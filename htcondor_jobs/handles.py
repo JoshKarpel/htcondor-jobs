@@ -287,14 +287,35 @@ class ConstraintHandle(Handle):
             scheduler=self.scheduler,
         )
 
-    def save(self, path: Path) -> None:
-        """Save this :class:`ConstraintHandle` to a file at ``path`` for later use (see :meth:`ConstraintHandle.load`)."""
+    def save(self, path: Path, protocol: Optional[int] = None) -> None:
+        """
+        Save this :class:`ConstraintHandle` to a file at ``path`` for later use (see :meth:`ConstraintHandle.load`).
+
+        Parameters
+        ----------
+        path
+            The path to save the handle to.
+        protocol
+            The `Pickle protocol version <https://docs.python.org/3/library/pickle.html#data-stream-format>`_ to use.
+        """
         with path.open(mode="wb") as f:
-            pickle.dump(self, f, protocol=-1)
+            pickle.dump(self, f, protocol=protocol)
 
     @classmethod
     def load(cls, path: Path) -> "ConstraintHandle":
-        """Load a :class:`ConstraintHandle` from a file at ``path`` that was created by :meth:`ConstraintHandle.save`."""
+        """
+        Load a :class:`ConstraintHandle` from a file at ``path`` that was created by :meth:`ConstraintHandle.save`.
+
+        Parameters
+        ----------
+        path
+            The path to load the handle from.
+
+        Returns
+        -------
+        handle :
+            The loaded handle.
+        """
         with path.open(mode="rb") as f:
             return pickle.load(f)
 
