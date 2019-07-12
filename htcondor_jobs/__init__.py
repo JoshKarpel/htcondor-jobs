@@ -13,31 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Tuple as _Tuple
 import logging as _logging
 
 # SET UP NULL LOG HANDLER
 logger = _logging.getLogger(__name__)
 logger.setLevel(_logging.DEBUG)
 logger.addHandler(_logging.NullHandler())
-
-__version__ = "0.1.0"
-
-
-def version() -> str:
-    """Return a string containing human-readable version information."""
-    return f"htcondor-jobs version {__version__}"
-
-
-def _version_info(v: str) -> _Tuple[int, int, int, str]:
-    """Un-format ``__version__``."""
-    return (*(int(x) for x in v[:5].split(".")), v[5:])
-
-
-def version_info() -> _Tuple[int, int, int, str]:
-    """Return a tuple of version information: ``(major, minor, micro, release_level)``."""
-    return _version_info(__version__)
-
 
 from .constraints import (
     Constraint,
@@ -56,4 +37,5 @@ from .handles import Handle, ConstraintHandle, ClusterHandle
 from .descriptions import SubmitDescription
 from .submit import submit, Transaction
 from .status import JobStatus, ClusterState
+from .version import __version__, version, version_info
 from . import exceptions

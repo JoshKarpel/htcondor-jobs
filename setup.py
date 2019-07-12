@@ -24,7 +24,7 @@ THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def find_version():
     """Grab the version out of htcondor_jobs/__init__.py without importing it."""
-    version_file_text = (Path(THIS_DIR) / "htcondor_jobs" / "__init__.py").read_text()
+    version_file_text = (Path(THIS_DIR) / "htcondor_jobs" / "version.py").read_text()
     version_match = re.search(
         r"^__version__ = ['\"]([^'\"]*)['\"]", version_file_text, re.M
     )
