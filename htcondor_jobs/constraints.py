@@ -13,17 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging as _logging
-
-# SET UP NULL LOG HANDLER
-logger = _logging.getLogger(__name__)
-logger.setLevel(_logging.DEBUG)
-logger.addHandler(_logging.NullHandler())
-
-from .handles import Handle, ConstraintHandle, ClusterHandle
-from .constraints import *
-from .descriptions import SubmitDescription
-from .submit import submit, Transaction
-from .status import JobStatus, ClusterState
-from .version import __version__, version, version_info
-from . import exceptions
+IsIdle = "JobStatus == 1"
+IsRunning = "JobStatus == 2"
+IsRemoved = "JobStatus == 3"
+IsCompleted = "JobStatus == 4"
+IsHeld = "JobStatus == 5"
+IsTransferringOutput = "JobStatus == 6"
+IsSuspended = "JobStatus == 7"
