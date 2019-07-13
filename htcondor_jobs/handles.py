@@ -20,7 +20,6 @@ import abc
 import time
 from pathlib import Path
 import pickle
-import operator
 
 import htcondor
 import classad
@@ -247,11 +246,6 @@ class ConstraintHandle(Handle):
     def __repr__(self):
         return f"{self.__class__.__name__}(constraint = {self.constraint})"
 
-    def reduce(self) -> "ConstraintHandle":
-        return ConstraintHandle(
-            self.constraint.reduce(), collector=self.collector, scheduler=self.scheduler
-        )
-
     def __and__(
         self, other: Union["ConstraintHandle", classad.ExprTree, str]
     ) -> "ConstraintHandle":
@@ -280,7 +274,7 @@ class ConstraintHandle(Handle):
             c = classad.ExprTree(other)
         else:
             raise exceptions.InvalidHandle(
-                f"Cannot construct a combined handle from {self} and {other} because {other} is not a ConstraintHandle, ExprTree, or cannot be parsed into an ExprTree"
+                f"Cannot construct a combined handle from {self} and {other} because it is not a ConstraintHandle, ExprTree, or cannot be parsed into an ExprTree"
             )
 
         return ConstraintHandle(
@@ -438,7 +432,7 @@ class ClusterHandle(ConstraintHandle):
             The amount of time spent waiting.
         """
         if condition is None:
-            condition = lambda hnd: hnd.state.is_complete()
+            condition = lambda hnd: hnd.state.all_complete()
 
         start_time = time.time()
         while not condition(self):

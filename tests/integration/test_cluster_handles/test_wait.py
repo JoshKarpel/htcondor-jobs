@@ -24,7 +24,7 @@ def test_wait(short_sleep):
 
     handle.wait(timeout=180)
 
-    assert handle.state.is_complete()
+    assert handle.state.all_complete()
 
 
 def test_timeout(long_sleep):
