@@ -38,7 +38,6 @@ Querying, Acting on, and Editing Jobs
    .. automethod:: edit
 
    .. autoattribute:: constraint
-   .. automethod:: reduce
 
 Cluster Handles
 ---------------
@@ -59,35 +58,3 @@ Cluster Handles
    .. automethod:: any_in_queue
    .. automethod:: any_held
 
-Constraints
------------
-
-.. autoclass:: Constraint
-
-   .. automethod:: reduce
-
-
-Combinators
-+++++++++++
-
-.. autoclass:: And
-
-.. autoclass:: Or
-
-.. autoclass:: Not
-
-
-
-Comparisons
-+++++++++++
-
-.. autoclass:: Comparison
-
-.. autoclass:: Operator
-
-.. autoclass:: ComparisonConstraint
-
-Shortcuts
-+++++++++
-
-.. autoclass:: InCluster

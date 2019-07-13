@@ -20,19 +20,6 @@ logger = _logging.getLogger(__name__)
 logger.setLevel(_logging.DEBUG)
 logger.addHandler(_logging.NullHandler())
 
-from .constraints import (
-    Constraint,
-    BooleanConstraint,
-    true,
-    false,
-    And,
-    Or,
-    Not,
-    Operator,
-    Comparison,
-    ComparisonConstraint,
-    InCluster,
-)
 from .handles import Handle, ConstraintHandle, ClusterHandle
 from .descriptions import SubmitDescription
 from .submit import submit, Transaction

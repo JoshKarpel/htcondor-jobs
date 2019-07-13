@@ -36,7 +36,3 @@ class NoJobEventLog(JobsException):
 
 class Timeout(JobsException):
     pass
-
-
-class ExpressionParseFailed(JobsException):
-    pass

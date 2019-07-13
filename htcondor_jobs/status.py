@@ -21,7 +21,7 @@ import collections
 from pathlib import Path
 import functools
 import weakref
-from typing import MutableSequence
+from typing import MutableSequence, Union
 
 import htcondor
 
@@ -145,8 +145,12 @@ class ClusterState:
         logger.debug(f"new status counts for {self._handle}: {self._counts}")
 
     @update_before
-    def __getitem__(self, proc: int) -> JobStatus:
-        return self._data[proc - self._offset]
+    def __getitem__(self, proc: Union[int, slice]) -> JobStatus:
+        if isinstance(proc, int):
+            return self._data[proc - self._offset]
+        elif isinstance(proc, slice):
+            start, stop, stride = proc.indices(len(self))
+            return self._data[start - self._offset : stop - self._offset : stride]
 
     @update_before
     def counts(self) -> collections.Counter:
