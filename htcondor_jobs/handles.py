@@ -20,12 +20,11 @@ import abc
 import time
 from pathlib import Path
 import pickle
-import operator
 
 import htcondor
 import classad
 
-from . import constraints, locate, status, utils, exceptions
+from . import locate, status, utils, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -226,16 +225,18 @@ class ConstraintHandle(Handle):
 
     def __init__(
         self,
-        constraint: constraints.Constraint,
+        constraint: Union[classad.ExprTree, str],
         collector: Optional[str] = None,
         scheduler: Optional[str] = None,
     ):
         super().__init__(collector=collector, scheduler=scheduler)
 
+        if isinstance(constraint, str):
+            constraint = classad.ExprTree(constraint)
         self._constraint = constraint
 
     @property
-    def constraint(self) -> constraints.Constraint:
+    def constraint(self) -> classad.ExprTree:
         return self._constraint
 
     @property
@@ -245,23 +246,18 @@ class ConstraintHandle(Handle):
     def __repr__(self):
         return f"{self.__class__.__name__}(constraint = {self.constraint})"
 
-    def reduce(self) -> "ConstraintHandle":
-        return ConstraintHandle(
-            self.constraint.reduce(), collector=self.collector, scheduler=self.scheduler
-        )
-
     def __and__(
-        self, other: Union["ConstraintHandle", constraints.Constraint, str]
+        self, other: Union["ConstraintHandle", classad.ExprTree, str]
     ) -> "ConstraintHandle":
-        return self._combine(other, operator.and_)
+        return self._combine(other, classad.ExprTree.and_)
 
     def __or__(
-        self, other: Union["ConstraintHandle", constraints.Constraint, str]
+        self, other: Union["ConstraintHandle", classad.ExprTree, str]
     ) -> "ConstraintHandle":
-        return self._combine(other, operator.or_)
+        return self._combine(other, classad.ExprTree.or_)
 
     def _combine(
-        self, other: Union["ConstraintHandle", constraints.Constraint, str], combinator
+        self, other: Union["ConstraintHandle", classad.ExprTree, str], combinator
     ):
         if isinstance(other, ConstraintHandle) and (
             self.collector != other.collector or self.scheduler != other.scheduler
@@ -272,13 +268,13 @@ class ConstraintHandle(Handle):
 
         if isinstance(other, ConstraintHandle):
             c = other.constraint
-        elif isinstance(other, constraints.Constraint):
+        elif isinstance(other, classad.ExprTree):
             c = other
         elif isinstance(other, str):
-            c = constraints.ComparisonConstraint.from_expr(other)
+            c = classad.ExprTree(other)
         else:
             raise exceptions.InvalidHandle(
-                f"Cannot construct a combined handle from {self} and {other} because {other} is not a ConstraintHandle, Constraint, or comparison constraint expression"
+                f"Cannot construct a combined handle from {self} and {other} because it is not a ConstraintHandle, ExprTree, or cannot be parsed into an ExprTree"
             )
 
         return ConstraintHandle(
@@ -336,7 +332,7 @@ class ClusterHandle(ConstraintHandle):
     information about the current state of the jobs in the cluster.
     """
 
-    __slots__ = ("clusterid", "clusterad", "_first_proc", "_num_procs", "_state")
+    __slots__ = ("_clusterid", "_clusterad", "_first_proc", "_num_procs", "_state")
 
     def __init__(
         self,
@@ -344,13 +340,13 @@ class ClusterHandle(ConstraintHandle):
         collector: Optional[str] = None,
         scheduler: Optional[str] = None,
     ):
-        self.clusterid = submit_result.cluster()
-        self.clusterad = submit_result.clusterad()
+        self._clusterid = submit_result.cluster()
+        self._clusterad = submit_result.clusterad()
         self._first_proc = submit_result.first_proc()
         self._num_procs = submit_result.num_procs()
 
         super().__init__(
-            constraint=constraints.InCluster(self.clusterid),
+            constraint=classad.ExprTree(f"ClusterID == {self.clusterid}"),
             collector=collector,
             scheduler=scheduler,
         )
@@ -369,6 +365,14 @@ class ClusterHandle(ConstraintHandle):
 
     def __len__(self):
         return self._num_procs
+
+    @property
+    def clusterid(self):
+        return self._clusterid
+
+    @property
+    def clusterad(self):
+        return self._clusterad
 
     @property
     def first_proc(self):
@@ -428,7 +432,7 @@ class ClusterHandle(ConstraintHandle):
             The amount of time spent waiting.
         """
         if condition is None:
-            condition = lambda hnd: hnd.state.is_complete()
+            condition = lambda hnd: hnd.state.all_complete()
 
         start_time = time.time()
         while not condition(self):

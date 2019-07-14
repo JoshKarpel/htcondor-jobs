@@ -21,7 +21,7 @@ import collections
 from pathlib import Path
 import functools
 import weakref
-from typing import MutableSequence
+from typing import MutableSequence, Union
 
 import htcondor
 
@@ -38,7 +38,7 @@ class JobStatus(enum.IntEnum):
     COMPLETED = 4
     HELD = 5
     TRANSFERRING_OUTPUT = 6
-    SUSPENDED = 7  # todo: ?
+    SUSPENDED = 7
     UNMATERIALIZED = 100
 
 
@@ -145,8 +145,12 @@ class ClusterState:
         logger.debug(f"new status counts for {self._handle}: {self._counts}")
 
     @update_before
-    def __getitem__(self, proc: int) -> JobStatus:
-        return self._data[proc - self._offset]
+    def __getitem__(self, proc: Union[int, slice]) -> JobStatus:
+        if isinstance(proc, int):
+            return self._data[proc - self._offset]
+        elif isinstance(proc, slice):
+            start, stop, stride = proc.indices(len(self))
+            return self._data[start - self._offset : stop - self._offset : stride]
 
     @update_before
     def counts(self) -> collections.Counter:
@@ -173,21 +177,29 @@ class ClusterState:
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self._handle == other._handle
 
-    def is_complete(self) -> bool:
-        """Return ``True`` if **all** of the jobs in the cluster are complete."""
+    def all_complete(self) -> bool:
+        """
+        Return ``True`` if **all** of the jobs in the cluster are complete.
+        Note that this definition includes jobs that have left the queue,
+        not just ones that are in the "Completed" state in the queue.
+        """
         return self.counts()[JobStatus.COMPLETED] == len(self)
+
+    def any_complete(self) -> bool:
+        """
+        Return ``True`` if **any** of the jobs in the cluster are complete.
+        Note that this definition includes jobs that have left the queue,
+        not just ones that are in the "Completed" state in the queue.
+        """
+        return self.counts()[JobStatus.COMPLETED] > 0
+
+    def any_idle(self) -> bool:
+        """Return ``True`` if **any** of the jobs in the cluster are idle."""
+        return self.counts()[JobStatus.IDLE] > 0
 
     def any_running(self) -> bool:
         """Return ``True`` if **any** of the jobs in the cluster are running."""
         return self.counts()[JobStatus.RUNNING] > 0
-
-    def any_in_queue(self) -> bool:
-        """Return ``True`` if **any** of the jobs in the cluster are still in the queue (idle, running, or held)."""
-        c = self.counts()
-        jobs_in_queue = sum(
-            (c[JobStatus.IDLE], c[JobStatus.RUNNING], c[JobStatus.HELD])
-        )
-        return jobs_in_queue > 0
 
     def any_held(self) -> bool:
         """Return ``True`` if **any** of the jobs in the cluster are held."""

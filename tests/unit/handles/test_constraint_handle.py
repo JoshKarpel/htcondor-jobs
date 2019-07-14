@@ -17,17 +17,15 @@ import pytest
 
 import operator
 
+import classad
+
 import htcondor_jobs as jobs
 
 
 @pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
 def test_cannot_combine_handles_with_different_collectors(combinator):
-    h1 = jobs.ConstraintHandle(
-        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar"), collector="foo"
-    )
-    h2 = jobs.ConstraintHandle(
-        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar"), collector="bar"
-    )
+    h1 = jobs.ConstraintHandle("foo == bar", collector="foo")
+    h2 = jobs.ConstraintHandle("foo == bar", collector="bar")
 
     with pytest.raises(jobs.exceptions.InvalidHandle):
         combinator(h1, h2)
@@ -35,70 +33,42 @@ def test_cannot_combine_handles_with_different_collectors(combinator):
 
 @pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
 def test_cannot_combine_handles_with_different_schedulers(combinator):
-    h1 = jobs.ConstraintHandle(
-        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar"), scheduler="foo"
-    )
-    h2 = jobs.ConstraintHandle(
-        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar"), scheduler="bar"
-    )
+    h1 = jobs.ConstraintHandle("foo == bar", scheduler="foo")
+    h2 = jobs.ConstraintHandle("foo == bar", scheduler="bar")
 
     with pytest.raises(jobs.exceptions.InvalidHandle):
         combinator(h1, h2)
 
 
-@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
-def test_can_combine_handle_with_constraint(combinator):
-    h = jobs.ConstraintHandle(
-        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
-    )
-    c = jobs.ComparisonConstraint("fizz", jobs.Operator.Equals, "buzz")
+@pytest.fixture(scope="function")
+def dummy_constraint_handle():
+    return jobs.ConstraintHandle("foo == bar")
 
-    combined = combinator(h, c)
+
+@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
+def test_can_combine_handle_with_exprtree(dummy_constraint_handle, combinator):
+    c = classad.ExprTree("fizz == buzz")
+
+    combined = combinator(dummy_constraint_handle, c)
 
     assert isinstance(combined, jobs.ConstraintHandle)
 
 
 @pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
-def test_can_combine_handle_with_comparison_constraint_string(combinator):
-    h = jobs.ConstraintHandle(
-        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
-    )
+def test_can_combine_handle_with_string(dummy_constraint_handle, combinator):
     c = "fizz == buzz"
 
-    combined = combinator(h, c)
+    combined = combinator(dummy_constraint_handle, c)
 
     assert isinstance(combined, jobs.ConstraintHandle)
-
-
-@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
-def test_cannot_combine_handle_with_arbitrary_string(combinator):
-    h = jobs.ConstraintHandle(
-        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
-    )
-    c = "dsifjaodgj"
-
-    with pytest.raises(jobs.exceptions.ExpressionParseFailed):
-        combined = combinator(h, c)
 
 
 @pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
 @pytest.mark.parametrize("bad_value", [None, True, 1, 5.5, {}, [], set()])
-def test_cannot_combine_handle_with_other_types(combinator, bad_value):
-    h = jobs.ConstraintHandle(
-        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
-    )
+def test_cannot_combine_handle_with_other_types(
+    dummy_constraint_handle, combinator, bad_value
+):
     c = bad_value
 
     with pytest.raises(jobs.exceptions.InvalidHandle):
-        combined = combinator(h, c)
-
-
-@pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
-def test_cannot_combine_handle_with_bad_operator(combinator):
-    h = jobs.ConstraintHandle(
-        jobs.ComparisonConstraint("foo", jobs.Operator.Equals, "bar")
-    )
-    c = "foo !?= bar"
-
-    with pytest.raises(jobs.exceptions.ExpressionParseFailed):
-        combined = combinator(h, c)
+        combined = combinator(dummy_constraint_handle, c)

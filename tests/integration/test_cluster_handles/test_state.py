@@ -48,32 +48,7 @@ def test_is_complete(short_sleep):
 
     handle.wait(timeout=180)
 
-    assert handle.state.is_complete()
-
-
-def test_any_in_queue_when_idle(long_sleep):
-    handle = jobs.submit(long_sleep, count=1)
-
-    handle.wait(condition=lambda h: h.state[0] is jobs.JobStatus.IDLE, timeout=180)
-    # yes, it could start running now... oh well
-    assert handle.state.any_in_queue()
-
-
-def test_any_in_queue_when_held(long_sleep):
-    handle = jobs.submit(long_sleep, count=1)
-
-    handle.hold()
-    handle.wait(condition=lambda h: h.state[0] is jobs.JobStatus.HELD, timeout=180)
-
-    assert handle.state.any_in_queue()
-
-
-def test_any_in_queue_when_running(long_sleep):
-    handle = jobs.submit(long_sleep, count=1)
-
-    handle.wait(condition=lambda h: h.state[0] is jobs.JobStatus.RUNNING, timeout=180)
-
-    assert handle.state.any_in_queue()
+    assert handle.state.all_complete()
 
 
 def test_any_running(long_sleep):
