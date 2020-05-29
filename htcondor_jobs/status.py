@@ -80,16 +80,6 @@ class ClusterState:
         :class:`ClusterHandle` will create them automatically when needed.
     """
 
-    __slots__ = (
-        "_handle",
-        "_clusterid",
-        "_offset",
-        "_event_log_path",
-        "_events",
-        "_data",
-        "_counts",
-    )
-
     def __init__(self, handle: "handles.ClusterHandle"):
         self._handle = weakref.proxy(handle)
         self._clusterid = handle.clusterid
@@ -113,36 +103,43 @@ class ClusterState:
         return [JobStatus.UNMATERIALIZED for _ in range(len(handle))]
 
     def _update(self):
-        logger.debug(f"triggered status update for handle {self._handle}")
-
         if self._events is None:
             logger.debug(
-                f"looking for event log for handle {self._handle} at {self._event_log_path}"
+                f"Looking for event log for handle {self._handle} at {self._event_log_path}"
             )
             self._events = htcondor.JobEventLog(self._event_log_path.as_posix()).events(
                 0
             )
             logger.debug(
-                f"initialized event log reader for handle {self._handle}, targeting {self._event_log_path}"
+                f"Initialized event log reader for handle {self._handle}, targeting {self._event_log_path}"
             )
 
-        for event in self._events:
-            if event.cluster != self._clusterid:
-                continue
+        with utils.Timer() as timer:
+            num_handled = 0
+            num_skipped = 0
+            for event in self._events:
+                if event.cluster != self._clusterid:
+                    num_skipped += 1
+                    continue
 
-            new_status = JOB_EVENT_STATUS_TRANSITIONS.get(event.type, None)
-            if new_status is not None:
-                key = event.proc - self._offset
+                num_handled += 1
 
-                # update counts
-                old_status = self._data[key]
-                self._counts[old_status] -= 1
-                self._counts[new_status] += 1
+                new_status = JOB_EVENT_STATUS_TRANSITIONS.get(event.type, None)
+                if new_status is not None:
+                    key = event.proc - self._offset
 
-                # set new status on individual job
-                self._data[key] = new_status
+                    # update counts
+                    old_status = self._data[key]
+                    self._counts[old_status] -= 1
+                    self._counts[new_status] += 1
 
-        logger.debug(f"new status counts for {self._handle}: {self._counts}")
+                    # set new status on individual job
+                    self._data[key] = new_status
+
+        if num_handled > 0:
+            logger.debug(
+                f"Handled {num_handled} new events (skipped {num_skipped}) for {self._handle} (took {timer.elapsed:.2f} seconds)."
+            )
 
     @update_before
     def __getitem__(self, proc: Union[int, slice]) -> JobStatus:
@@ -217,8 +214,6 @@ class CompactClusterState(ClusterState):
     # as long as they're small.
     # However, when they come back out, they'll just be integers, and we need
     # to turn them back into JobStatus.
-
-    __slots__ = ()
 
     def _make_initial_data(self, handle: "handles.ClusterHandle") -> MutableSequence:
         return array.array("B", [JobStatus.UNMATERIALIZED for _ in range(len(handle))])

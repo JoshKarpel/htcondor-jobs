@@ -81,7 +81,7 @@ SCHEDD_CACHE: TimedCache = TimedCache(cache_time=60)
 
 
 def get_schedd(
-    collector: Optional[str] = None, scheduler: Optional[str] = None
+    collector: Optional[str] = None, schedd: Optional[str] = None
 ) -> htcondor.Schedd:
     """
     Get the :class:`htcondor.Schedd` that represents the HTCondor scheduler,
@@ -92,27 +92,28 @@ def get_schedd(
     Parameters
     ----------
     collector
-    scheduler
+    schedd
 
     Returns
     -------
     schedd :
     """
+    if isinstance(schedd, htcondor.Schedd):
+        return schedd
     try:
-        schedd = SCHEDD_CACHE[collector, scheduler]
+        schedd = SCHEDD_CACHE[collector, schedd]
     except KeyError:
-        schedd = _locate_schedd(collector, scheduler)
-        SCHEDD_CACHE[collector, scheduler] = schedd
+        schedd = _locate_schedd(collector, schedd)
+        SCHEDD_CACHE[collector, schedd] = schedd
 
     return schedd
 
 
-def _locate_schedd(
-    collector: Optional[str], scheduler: Optional[str]
-) -> htcondor.Schedd:
-    if scheduler is None:
+def _locate_schedd(collector: Optional[str], schedd: Optional[str]) -> htcondor.Schedd:
+    if schedd is None:
         return htcondor.Schedd()
 
+    print(collector, schedd)
     coll = htcondor.Collector(collector)
-    schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd, scheduler)
+    schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd, schedd)
     return htcondor.Schedd(schedd_ad)

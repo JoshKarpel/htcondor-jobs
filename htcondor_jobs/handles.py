@@ -30,13 +30,11 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class Handle(abc.ABC, utils.SlotPickleMixin):
+class Handle(abc.ABC):
     """
     A connection to a set of jobs defined by a constraint.
     The handle can be used to query, act on, or edit those jobs.
     """
-
-    __slots__ = ("collector", "scheduler", "__weakref__")
 
     def __init__(
         self, collector: Optional[str] = None, scheduler: Optional[str] = None
@@ -107,7 +105,7 @@ class Handle(abc.ABC, utils.SlotPickleMixin):
         logger.info(
             f"Executing query against schedd {self.schedd} with constraint {cs}, projection {projection}, and limit {limit}"
         )
-        return self.schedd.xquery(cs, projection=projection, opts=options, limit=limit)
+        return self.schedd.query(cs, projection=projection, opts=options, limit=limit)
 
     def _act(self, action: htcondor.JobAction) -> classad.ClassAd:
         cs = self.constraint_string
@@ -221,8 +219,6 @@ class ConstraintHandle(Handle):
     The handle can be used to query, act on, or edit those jobs.
     """
 
-    __slots__ = ("_constraint",)
-
     def __init__(
         self,
         constraint: Union[classad.ExprTree, str],
@@ -332,8 +328,6 @@ class ClusterHandle(ConstraintHandle):
     information about the current state of the jobs in the cluster.
     """
 
-    __slots__ = ("_clusterid", "_clusterad", "_first_proc", "_num_procs", "_state")
-
     def __init__(
         self,
         submit_result: htcondor.SubmitResult,
@@ -395,7 +389,7 @@ class ClusterHandle(ConstraintHandle):
         self,
         condition: Callable[["ClusterHandle"], bool] = None,
         timeout: Optional[Union[int, float]] = None,
-        test_delay: Union[int, float] = 0.25,
+        test_delay: Union[int, float] = 1,
     ) -> float:
         """
         Wait for some condition to be satisfied.

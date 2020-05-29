@@ -36,8 +36,6 @@ class SubmitDescription(MutableMapping[str, T_SUBMIT_VALUE]):
     as well as the ``[]`` operator for both getting and setting.
     """
 
-    __slots__ = ("_descriptors",)
-
     def __init__(
         self, mapping: Optional[Mapping] = None, **descriptors: T_SUBMIT_VALUE
     ):

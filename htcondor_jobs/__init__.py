@@ -25,5 +25,7 @@ from .constraints import *
 from .descriptions import SubmitDescription
 from .submit import submit, Transaction
 from .status import JobStatus, ClusterState
+from .scheduler import Scheduler
+from .personal import PersonalCondor
 from .version import __version__, version, version_info
 from . import exceptions

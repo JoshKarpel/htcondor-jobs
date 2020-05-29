@@ -38,7 +38,7 @@ def submit(
     count: Optional[int] = 1,
     itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
     collector: Optional[str] = None,
-    scheduler: Optional[str] = None,
+    schedd: Optional[str] = None,
 ) -> handles.ClusterHandle:
     """
     Submit a single cluster of jobs based on a submit description.
@@ -54,22 +54,20 @@ def submit(
         If ``itemdata`` is ``None``, this is the total number of jobs to submit.
     itemdata
     collector
-    scheduler
+    schedd
 
     Returns
     -------
     handle : :class:`ClusterHandle`
         A handle connected to the jobs that were submitted.
     """
-    with Transaction(collector=collector, scheduler=scheduler) as txn:
+    with Transaction(collector=collector, scheduler=schedd) as txn:
         handle = txn.submit(description, count, itemdata)
 
     return handle
 
 
 class Transaction:
-    __slots__ = ("collector", "scheduler", "_schedd", "_txn")
-
     def __init__(
         self, collector: Optional[str] = None, scheduler: Optional[str] = None
     ):
@@ -110,7 +108,7 @@ class Transaction:
         if itemdata is not None:
             itemdata = list(itemdata)
             check_itemdata(itemdata)
-            itemdata_msg = f" and {len(itemdata)} elements of itemdata"
+            itemdata_msg = f" and {len(itemdata)} itemdata"
         else:
             itemdata_msg = ""
 
@@ -120,15 +118,14 @@ class Transaction:
         )
 
         logger.info(
-            f"Submitted {repr(sub)} to {self._schedd} on transaction {self._txn} with count {count}{itemdata_msg}"
+            f"Submitted to {self._schedd} on transaction {self._txn} with count {count}{itemdata_msg} and description\n{sub}"
         )
 
         return handle
 
     def __enter__(self) -> "Transaction":
         self._schedd = locate.get_schedd(self.collector, self.scheduler)
-        self._txn = self._schedd.transaction()
-        self._txn.__enter__()
+        self._txn = self._schedd.transaction().__enter__()
 
         return self
 
