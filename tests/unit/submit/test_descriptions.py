@@ -17,7 +17,7 @@ import pytest
 
 import htcondor
 
-import htcondor_jobs as jobs
+from htcondor import jobs
 
 
 DESCRIPTORS = {"foo": "0", "bar": "baz"}

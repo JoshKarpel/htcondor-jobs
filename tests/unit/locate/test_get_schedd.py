@@ -19,8 +19,7 @@ import time
 
 import htcondor
 
-import htcondor_jobs as jobs
-from htcondor_jobs.locate import locate_schedd
+from htcondor.jobs.locate import locate_schedd
 
 
 def test_no_args():

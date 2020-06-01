@@ -15,7 +15,7 @@
 
 import pytest
 
-import htcondor_jobs as jobs
+from htcondor import jobs
 
 
 def get_job_attr(handle, attr):

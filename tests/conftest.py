@@ -16,7 +16,7 @@
 import pytest
 import os
 
-import htcondor_jobs as jobs
+from htcondor import jobs
 
 
 @pytest.fixture(scope="function", autouse=True)

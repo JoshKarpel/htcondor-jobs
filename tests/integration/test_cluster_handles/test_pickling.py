@@ -16,7 +16,7 @@
 import pytest
 import time
 
-import htcondor_jobs as jobs
+from htcondor import jobs
 
 
 @pytest.fixture(scope="function")

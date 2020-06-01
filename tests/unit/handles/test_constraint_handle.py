@@ -19,7 +19,7 @@ import operator
 
 import classad
 
-import htcondor_jobs as jobs
+from htcondor import jobs
 
 
 @pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
