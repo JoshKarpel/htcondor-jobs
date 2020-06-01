@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union, List, Iterable, Mapping, Sequence, TypeVar
+from typing import Optional, List, Iterable
 import logging
 
 import collections.abc
@@ -21,24 +21,24 @@ import collections.abc
 import htcondor
 
 from . import descriptions, handles, locate, exceptions
+from .types import (
+    T_ITEMDATA_MAPPING,
+    T_ITEMDATA_SEQUENCE,
+    T_ITEMDATA_ELEMENT,
+    T_COLLECTOR_LOCATION,
+    T_SCHEDD_LOCATION,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-T_ITEMDATA = Union[str, int, float]
-T_ITEMDATA_MAPPING = Mapping[str, T_ITEMDATA]
-T_ITEMDATA_SEQUENCE = Sequence[T_ITEMDATA]
-T_ITEMDATA_ELEMENT = TypeVar(
-    "T_ITEMDATA_ELEMENT", T_ITEMDATA_MAPPING, T_ITEMDATA_SEQUENCE
-)
 
 
 def submit(
     description: descriptions.SubmitDescription,
     count: Optional[int] = 1,
     itemdata: Optional[Iterable[T_ITEMDATA_ELEMENT]] = None,
-    collector: Optional[str] = None,
-    schedd: Optional[str] = None,
+    collector: T_COLLECTOR_LOCATION = None,
+    schedd: T_SCHEDD_LOCATION = None,
 ) -> handles.ClusterHandle:
     """
     Submit a single cluster of jobs based on a submit description.
@@ -69,7 +69,9 @@ def submit(
 
 class Transaction:
     def __init__(
-        self, collector: Optional[str] = None, scheduler: Optional[str] = None
+        self,
+        collector: T_COLLECTOR_LOCATION = None,
+        scheduler: T_SCHEDD_LOCATION = None,
     ):
         """
         Open a transaction with a schedd.
@@ -124,7 +126,7 @@ class Transaction:
         return handle
 
     def __enter__(self) -> "Transaction":
-        self._schedd = locate.get_schedd(self.collector, self.scheduler)
+        self._schedd = locate.locate_schedd(self.collector, self.scheduler)
         self._txn = self._schedd.transaction().__enter__()
 
         return self

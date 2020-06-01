@@ -16,104 +16,31 @@
 from typing import Optional, Any, Union, TypeVar, Generic, Dict
 import logging
 
-import time
-import collections.abc
-
 import htcondor
+
+from .types import T_COLLECTOR_LOCATION, T_SCHEDD_LOCATION
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-K = TypeVar("K")
-V = TypeVar("V")
+
+def locate_collector(collector: T_COLLECTOR_LOCATION) -> htcondor.Collector:
+    if collector is None:
+        return htcondor.Collector()
+    elif isinstance(collector, str):
+        return htcondor.Collector(collector)
+    return collector
 
 
-class TimedCacheItem(Generic[V]):
-    __slots__ = ("timestamp", "value")
-
-    def __init__(self, value: V):
-        self.timestamp = time.time()
-        self.value = value
-
-
-class TimedCache(collections.abc.MutableMapping, Generic[K, V]):
-    """
-    As a dictionary, except that the entries expire after a specified amount of time.
-    """
-
-    __slots__ = ("cache_time", "cache")
-
-    def __init__(self, *, cache_time: Union[int, float]):
-        """
-        Parameters
-        ----------
-        cache_time
-            The amount of time to store entries for, in seconds.
-        """
-        self.cache_time = cache_time
-        self.cache: Dict[K, TimedCacheItem[V]] = {}
-
-    def __setitem__(self, key: K, value: V) -> None:
-        self.cache[key] = TimedCacheItem(value)
-
-    def __getitem__(self, key: K) -> V:
-        item = self.cache[key]
-        if self._is_item_expired(item):
-            del self[key]
-            raise KeyError(f"key {key} found, but has expired")
-        return item.value
-
-    def _is_item_expired(self, item: TimedCacheItem[V]) -> bool:
-        return time.time() > (item.timestamp + self.cache_time)
-
-    def __delitem__(self, key: K) -> None:
-        del self.cache[key]
-
-    def __iter__(self):
-        yield from self.cache
-
-    def __len__(self):
-        return len(self.cache)
-
-
-# note for testing: the cache is cleared before every test in tests/conftest.py
-SCHEDD_CACHE: TimedCache = TimedCache(cache_time=60)
-
-
-def get_schedd(
-    collector: Optional[str] = None, schedd: Optional[str] = None
+def locate_schedd(
+    collector: T_COLLECTOR_LOCATION, schedd: T_SCHEDD_LOCATION
 ) -> htcondor.Schedd:
-    """
-    Get the :class:`htcondor.Schedd` that represents the HTCondor scheduler,
-    as found by the collector and scheduler names given.
-
-    This function caches its results for 60 seconds.
-
-    Parameters
-    ----------
-    collector
-    schedd
-
-    Returns
-    -------
-    schedd :
-    """
-    if isinstance(schedd, htcondor.Schedd):
-        return schedd
-    try:
-        schedd = SCHEDD_CACHE[collector, schedd]
-    except KeyError:
-        schedd = _locate_schedd(collector, schedd)
-        SCHEDD_CACHE[collector, schedd] = schedd
-
-    return schedd
-
-
-def _locate_schedd(collector: Optional[str], schedd: Optional[str]) -> htcondor.Schedd:
     if schedd is None:
-        return htcondor.Schedd()
-
-    print(collector, schedd)
-    coll = htcondor.Collector(collector)
-    schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd, schedd)
-    return htcondor.Schedd(schedd_ad)
+        return htcondor.Schedd(
+            locate_collector(collector).locate(htcondor.DaemonTypes.Schedd)
+        )
+    elif isinstance(schedd, str):
+        return htcondor.Schedd(
+            locate_collector(collector).locate(htcondor.DaemonTypes.Schedd, schedd)
+        )
+    return schedd

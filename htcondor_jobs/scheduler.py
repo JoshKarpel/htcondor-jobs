@@ -21,15 +21,14 @@ import htcondor
 
 from .submit import submit
 from . import handles, personal
+from .types import T_COLLECTOR_LOCATION, T_SCHEDD_LOCATION
 
 logger = logging.getLogger(__name__)
 
 
 class Scheduler:
     def __init__(
-        self,
-        collector: Optional[Union[htcondor.Collector, str]] = None,
-        schedd: Optional[Union[htcondor.Schedd, str]] = None,
+        self, collector: T_COLLECTOR_LOCATION = None, schedd: T_SCHEDD_LOCATION = None,
     ):
         self._collector = collector
         self._schedd = schedd
@@ -44,10 +43,22 @@ class Scheduler:
         return sched
 
     @classmethod
-    def start_personal(cls, *args, **kwargs):
+    def persona(cls, *args, **kwargs) -> "Scheduler":
         pc = personal.PersonalCondor(*args, **kwargs)
         pc.start()
         return cls.from_personal(pc)
+
+    @classmethod
+    def local(cls) -> "Scheduler":
+        return cls()
+
+    @classmethod
+    def remote(
+        cls,
+        collector: Optional[Union[htcondor.Collector, str]] = None,
+        schedd: Optional[Union[htcondor.Schedd, str]] = None,
+    ) -> "Scheduler":
+        return cls(collector, schedd)
 
     def collector(self) -> htcondor.Collector:
         if self._collector is None:
