@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Any, Mapping, Iterable
+from typing import Optional, Any, Mapping, Iterable, Tuple
 
 import time
 import enum
+import re
+
+import htcondor
 
 
 class StrEnum(str, enum.Enum):
@@ -75,3 +78,31 @@ class Timer:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.end = time.monotonic()
+
+
+VERSION_RE = re.compile(r"^(\d+) \. (\d+) (\. (\d+))? ([ab](\d+))?$", re.VERBOSE | re.ASCII,)
+
+
+def parse_version(v: str) -> Tuple[int, int, int, Optional[str], Optional[int]]:
+    match = VERSION_RE.match(v)
+    if match is None:
+        raise Exception(f"Could not determine version info from {v}")
+
+    (major, minor, micro, prerelease, prerelease_num) = match.group(1, 2, 4, 5, 6)
+
+    out = (
+        int(major),
+        int(minor),
+        int(micro or 0),
+        prerelease[0] if prerelease is not None else None,
+        int(prerelease_num) if prerelease_num is not None else None,
+    )
+
+    return out
+
+
+EXTRACT_HTCONDOR_VERSION_RE = re.compile(r"(\d+\.\d+\.\d+)", flags=re.ASCII)
+
+BINDINGS_VERSION_INFO = parse_version(
+    EXTRACT_HTCONDOR_VERSION_RE.search(htcondor.version()).group(0)
+)
