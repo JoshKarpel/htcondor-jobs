@@ -1,21 +1,20 @@
 [run]
 branch = True
 
-include =
-    htcondor_jobs/*
+data_file = /tmp/htcondor-jobs-test-coverage
 
-omit =
-    tests/*
+source =
+    htcondor.jobs
+    tests
 
 [report]
 exclude_lines =
     pragma: no cover
-
+    pragma: unreachable
     def __repr__
-
     def __str__
-
     raise NotImplementedError
-
-    for _ in \[\]:
-
+    raise AssertionError
+    if 0:
+    if False:
+    if __name__ == .__main__.:

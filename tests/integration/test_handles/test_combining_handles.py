@@ -17,7 +17,7 @@ import time
 
 import pytest
 
-import htcondor_jobs as jobs
+from htcondor import jobs
 
 
 def test_and_of_cluster_handles_gives_right_number_of_jobs_in_query(long_sleep):

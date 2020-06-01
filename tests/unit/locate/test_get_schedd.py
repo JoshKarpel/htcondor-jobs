@@ -19,16 +19,8 @@ import time
 
 import htcondor
 
-import htcondor_jobs as jobs
-from htcondor_jobs.locate import get_schedd
+from htcondor.jobs.locate import locate_schedd
 
 
 def test_no_args():
-    assert isinstance(get_schedd(), htcondor.Schedd)
-
-
-def test_caching():
-    schedd = get_schedd()
-    again = get_schedd()
-
-    assert schedd is again
+    assert isinstance(locate_schedd(), htcondor.Schedd)

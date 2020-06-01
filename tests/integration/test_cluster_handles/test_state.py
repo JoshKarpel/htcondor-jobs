@@ -15,7 +15,7 @@
 
 import pytest
 
-import htcondor_jobs as jobs
+from htcondor import jobs
 
 
 def test_no_job_event_log():

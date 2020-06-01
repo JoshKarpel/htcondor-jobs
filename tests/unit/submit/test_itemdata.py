@@ -15,8 +15,8 @@
 
 import pytest
 
-import htcondor_jobs as jobs
-from htcondor_jobs.submit import check_itemdata
+from htcondor import jobs
+from htcondor.jobs.submit import check_itemdata
 
 
 DESCRIPTORS = {"foo": "0", "bar": "baz"}

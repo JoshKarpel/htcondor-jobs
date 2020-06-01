@@ -21,15 +21,14 @@ import htcondor
 
 from .submit import submit
 from . import handles, personal
+from .types import T_COLLECTOR_LOCATION, T_SCHEDD_LOCATION
 
 logger = logging.getLogger(__name__)
 
 
 class Scheduler:
     def __init__(
-        self,
-        collector: Optional[Union[htcondor.Collector, str]] = None,
-        schedd: Optional[Union[htcondor.Schedd, str]] = None,
+        self, collector: T_COLLECTOR_LOCATION = None, schedd: T_SCHEDD_LOCATION = None,
     ):
         self._collector = collector
         self._schedd = schedd
@@ -37,17 +36,27 @@ class Scheduler:
 
     @classmethod
     def from_personal(cls, personal_condor: personal.PersonalCondor) -> "Scheduler":
-        sched = cls(
-            collector=personal_condor.collector(), schedd=personal_condor.schedd()
-        )
+        sched = cls(collector=personal_condor.collector(), schedd=personal_condor.schedd())
         sched._personal_condor = personal_condor
         return sched
 
     @classmethod
-    def start_personal(cls, *args, **kwargs):
+    def persona(cls, *args, **kwargs) -> "Scheduler":
         pc = personal.PersonalCondor(*args, **kwargs)
         pc.start()
         return cls.from_personal(pc)
+
+    @classmethod
+    def local(cls) -> "Scheduler":
+        return cls()
+
+    @classmethod
+    def remote(
+        cls,
+        collector: Optional[Union[htcondor.Collector, str]] = None,
+        schedd: Optional[Union[htcondor.Schedd, str]] = None,
+    ) -> "Scheduler":
+        return cls(collector, schedd)
 
     def collector(self) -> htcondor.Collector:
         if self._collector is None:
@@ -66,11 +75,7 @@ class Scheduler:
         return self._schedd
 
     def query(
-        self,
-        constraint="true",
-        projection=None,
-        limit=-1,
-        opts=htcondor.QueryOpts.Default,
+        self, constraint="true", projection=None, limit=-1, opts=htcondor.QueryOpts.Default,
     ):
         """
         Perform a job information query against the pool's schedd.
@@ -94,9 +99,7 @@ class Scheduler:
         )
 
         logger.debug(
-            'Got {} ads from queue query with constraint "{}"'.format(
-                len(ads), constraint
-            )
+            'Got {} ads from queue query with constraint "{}"'.format(len(ads), constraint)
         )
 
         return ads
@@ -114,9 +117,7 @@ class Scheduler:
         -------
 
         """
-        logger.debug(
-            'Executing action: {} with constraint "{}"'.format(action, constraint)
-        )
+        logger.debug('Executing action: {} with constraint "{}"'.format(action, constraint))
         return self.schedd().act(action, constraint)
 
     def edit(self, attr, value, constraint="true"):
@@ -134,9 +135,7 @@ class Scheduler:
 
         """
         logger.debug(
-            'Executing edit: setting {} to {} with constraint "{}"'.format(
-                attr, value, constraint
-            )
+            'Executing edit: setting {} to {} with constraint "{}"'.format(attr, value, constraint)
         )
         return self.schedd().edit(constraint, attr, value)
 

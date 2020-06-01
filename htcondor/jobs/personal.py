@@ -186,9 +186,7 @@ class PersonalCondor:
             self._initialize()
             self._ready()
         except BaseException:
-            logger.exception(
-                "Encountered error during setup of {}, cleaning up!".format(self)
-            )
+            logger.exception("Encountered error during setup of {}, cleaning up!".format(self))
             self.stop()
             raise
 
@@ -216,9 +214,7 @@ class PersonalCondor:
 
     def _write_config(self):
         # TODO: switch to -summary instead of -write:up
-        write = run_command(
-            ["condor_config_val", "-write:up", self.config_file.as_posix()],
-        )
+        write = run_command(["condor_config_val", "-write:up", self.config_file.as_posix()],)
         if write.returncode != 0:
             raise Exception("Failed to copy base OS config: {}".format(write.stderr))
 
@@ -275,14 +271,10 @@ class PersonalCondor:
             self.condor_master = subprocess.Popen(
                 ["condor_master", "-f"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
-            logger.debug(
-                "Started condor_master (pid {})".format(self.condor_master.pid)
-            )
+            logger.debug("Started condor_master (pid {})".format(self.condor_master.pid))
 
     def _daemons(self):
-        return set(
-            self.run_command(["condor_config_val", "DAEMON_LIST"],).stdout.split(" ")
-        )
+        return set(self.run_command(["condor_config_val", "DAEMON_LIST"],).stdout.split(" "))
 
     @skip_if(PersonalCondorState.READY)
     def _wait_for_ready(self, timeout=120):
@@ -290,9 +282,7 @@ class PersonalCondor:
         master_log_path = self.master_log
 
         logger.debug(
-            "Starting up daemons for {}, waiting for: {}".format(
-                self, " ".join(sorted(daemons))
-            )
+            "Starting up daemons for {}, waiting for: {}".format(self, " ".join(sorted(daemons)))
         )
 
         start = time.time()
@@ -310,9 +300,7 @@ class PersonalCondor:
                 continue
 
             who = self.run_command(
-                shlex.split(
-                    "condor_who -wait:10 'IsReady && STARTD_State =?= \"Ready\"'"
-                ),
+                shlex.split("condor_who -wait:10 'IsReady && STARTD_State =?= \"Ready\"'"),
             )
             print(who.stdout)
             if who.stdout.strip() == "":
@@ -368,9 +356,7 @@ class PersonalCondor:
 
         if not off.returncode == 0:
             logger.error(
-                "condor_off failed, exit code: {}, stderr: {}".format(
-                    off.returncode, off.stderr
-                )
+                "condor_off failed, exit code: {}, stderr: {}".format(off.returncode, off.stderr)
             )
             self._terminate_condor_master()
             return
@@ -383,16 +369,12 @@ class PersonalCondor:
 
         self.condor_master.terminate()
         logger.debug(
-            "Sent terminate signal to condor_master (pid {})".format(
-                self.condor_master.pid
-            )
+            "Sent terminate signal to condor_master (pid {})".format(self.condor_master.pid)
         )
 
     def _kill_condor_master(self):
         self.condor_master.kill()
-        logger.debug(
-            "Sent kill signal to condor_master (pid {})".format(self.condor_master.pid)
-        )
+        logger.debug("Sent kill signal to condor_master (pid {})".format(self.condor_master.pid))
 
     def _wait_for_master_to_terminate(self, kill_after=60, timeout=120):
         logger.debug(
@@ -426,9 +408,7 @@ class PersonalCondor:
                 killed = True
 
             if elapsed > timeout:
-                raise TimeoutError(
-                    "Timed out while waiting for condor_master to terminate"
-                )
+                raise TimeoutError("Timed out while waiting for condor_master to terminate")
 
         logger.debug(
             "condor_master (pid {}) has terminated with exit code {}".format(
@@ -491,9 +471,7 @@ class PersonalCondor:
         return self._get_path_from_condor_config_val("{}_LOG".format(subsystem))
 
     def _get_address_file(self, subsystem):
-        return self._get_path_from_condor_config_val(
-            "{}_ADDRESS_FILE".format(subsystem)
-        )
+        return self._get_path_from_condor_config_val("{}_ADDRESS_FILE".format(subsystem))
 
     def _get_path_from_condor_config_val(self, attr):
         return Path(self.run_command(["condor_config_val", attr],).stdout)

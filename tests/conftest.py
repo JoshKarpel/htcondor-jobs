@@ -16,13 +16,7 @@
 import pytest
 import os
 
-import htcondor_jobs as jobs
-from htcondor_jobs.locate import SCHEDD_CACHE
-
-
-@pytest.fixture(scope="function", autouse=True)
-def clear_schedd_cache():
-    SCHEDD_CACHE.clear()
+from htcondor import jobs
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -34,16 +28,12 @@ def clear_queue():
 @pytest.fixture(scope="function")
 def long_sleep(tmp_path):
     return jobs.SubmitDescription(
-        executable="/bin/sleep",
-        arguments="5m",
-        log=(tmp_path / "events.log").as_posix(),
+        executable="/bin/sleep", arguments="5m", log=(tmp_path / "events.log").as_posix(),
     )
 
 
 @pytest.fixture(scope="function")
 def short_sleep(tmp_path):
     return jobs.SubmitDescription(
-        executable="/bin/sleep",
-        arguments="1s",
-        log=(tmp_path / "events.log").as_posix(),
+        executable="/bin/sleep", arguments="1s", log=(tmp_path / "events.log").as_posix(),
     )

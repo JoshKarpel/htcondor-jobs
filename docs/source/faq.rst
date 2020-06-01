@@ -1,7 +1,7 @@
 FAQ
 ===
 
-.. py:currentmodule:: htmap
+.. py:currentmodule:: htcondor_jobs
 
 .. _install:
 
