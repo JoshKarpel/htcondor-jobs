@@ -8,19 +8,13 @@ mkdir -p "$_condor_local_dir/lock" "$_condor_local_dir/log" "$_condor_local_dir/
 
 # start condor
 condor_master
-echo "HTCondor is starting..."
 
-# wait until the scheduler is awake
-while [[ ! -f ${_condor_local_dir}/spool/job_queue.log ]]
+# once the shared port daemon wakes up, use condor_who to wait for condor to stand up
+while [[ ! -s "${_condor_local_dir}/log/SharedPortLog" ]]
 do
   sleep .01
 done
-
-if [[ -n $@ ]];
-then
-    echo "Executing command \"$@\" in container..."
-else
-    echo "Executing default test command in container..."
-fi
+sleep 1  # fudge factor to let shared port *actually* wake up
+condor_who -wait:60 'IsReady && STARTD_State =?= "Ready"' > /dev/null
 
 exec "$@"

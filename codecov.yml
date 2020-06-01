@@ -1,0 +1,21 @@
+codecov:
+  strict_yaml_branch: master
+  token: f53345d1-71af-4dfa-ade6-16ce5bb3cba6
+coverage:
+  range: 50..100
+  round: down
+  precision: 0
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 5
+        only_pulls: true
+    patch:
+      default:
+        target: auto
+        threshold: 20
+        only_pulls: true
+comment:
+  layout: "diff, files"
+  require_changes: false

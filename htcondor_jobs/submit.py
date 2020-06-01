@@ -69,9 +69,7 @@ def submit(
 
 class Transaction:
     def __init__(
-        self,
-        collector: T_COLLECTOR_LOCATION = None,
-        scheduler: T_SCHEDD_LOCATION = None,
+        self, collector: T_COLLECTOR_LOCATION = None, scheduler: T_SCHEDD_LOCATION = None,
     ):
         """
         Open a transaction with a schedd.
@@ -115,9 +113,7 @@ class Transaction:
             itemdata_msg = ""
 
         result = sub.queue_with_itemdata(self._txn, count, itemdata)
-        handle = handles.ClusterHandle(
-            result, collector=self.collector, scheduler=self.scheduler
-        )
+        handle = handles.ClusterHandle(result, collector=self.collector, scheduler=self.scheduler)
 
         logger.info(
             f"Submitted to {self._schedd} on transaction {self._txn} with count {count}{itemdata_msg} and description\n{sub}"

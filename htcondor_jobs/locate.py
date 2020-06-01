@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def locate_collector(collector: T_COLLECTOR_LOCATION) -> htcondor.Collector:
+def locate_collector(collector: T_COLLECTOR_LOCATION = None) -> htcondor.Collector:
     if collector is None:
         return htcondor.Collector()
     elif isinstance(collector, str):
@@ -33,12 +33,10 @@ def locate_collector(collector: T_COLLECTOR_LOCATION) -> htcondor.Collector:
 
 
 def locate_schedd(
-    collector: T_COLLECTOR_LOCATION, schedd: T_SCHEDD_LOCATION
+    collector: T_COLLECTOR_LOCATION = None, schedd: T_SCHEDD_LOCATION = None
 ) -> htcondor.Schedd:
     if schedd is None:
-        return htcondor.Schedd(
-            locate_collector(collector).locate(htcondor.DaemonTypes.Schedd)
-        )
+        return htcondor.Schedd(locate_collector(collector).locate(htcondor.DaemonTypes.Schedd))
     elif isinstance(schedd, str):
         return htcondor.Schedd(
             locate_collector(collector).locate(htcondor.DaemonTypes.Schedd, schedd)

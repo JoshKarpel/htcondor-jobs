@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "htcondor-jobs"
+project = "htcondor-htcondor_jobs"
 copyright = "2019, CHTC"
 author = "CHTC"
 

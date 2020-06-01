@@ -19,7 +19,7 @@ import htcondor_jobs as jobs
 
 
 def get_job_attr(handle, attr):
-    ad = next(handle.query(projection=[attr]))
+    ad = handle.query(projection=[attr])[0]
     return ad[attr]
 
 

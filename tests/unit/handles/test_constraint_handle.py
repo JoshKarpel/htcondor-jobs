@@ -65,9 +65,7 @@ def test_can_combine_handle_with_string(dummy_constraint_handle, combinator):
 
 @pytest.mark.parametrize("combinator", [operator.and_, operator.or_])
 @pytest.mark.parametrize("bad_value", [None, True, 1, 5.5, {}, [], set()])
-def test_cannot_combine_handle_with_other_types(
-    dummy_constraint_handle, combinator, bad_value
-):
+def test_cannot_combine_handle_with_other_types(dummy_constraint_handle, combinator, bad_value):
     c = bad_value
 
     with pytest.raises(jobs.exceptions.InvalidHandle):

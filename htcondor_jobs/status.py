@@ -107,9 +107,7 @@ class ClusterState:
             logger.debug(
                 f"Looking for event log for handle {self._handle} at {self._event_log_path}"
             )
-            self._events = htcondor.JobEventLog(self._event_log_path.as_posix()).events(
-                0
-            )
+            self._events = htcondor.JobEventLog(self._event_log_path.as_posix()).events(0)
             logger.debug(
                 f"Initialized event log reader for handle {self._handle}, targeting {self._event_log_path}"
             )

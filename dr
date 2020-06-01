@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-CONTAINER_TAG=jobs-tests
+CONTAINER_TAG='htcondor-jobs-dev'
 
 set -e
-echo "Building htcondor-jobs testing container..."
-docker build --quiet -t ${CONTAINER_TAG} --file tests/_inf/Dockerfile .
-docker run -it --rm ${CONTAINER_TAG} $@
+
+docker build -t ${CONTAINER_TAG} --file docker/Dockerfile .
+
+docker run -it --rm --mount type=bind,src="$PWD",dst=/home/dev/htcondor-jobs -p 8000:8000 ${CONTAINER_TAG} $@

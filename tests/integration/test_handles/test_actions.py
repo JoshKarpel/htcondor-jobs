@@ -21,7 +21,7 @@ import htcondor_jobs as jobs
 
 
 def get_status(handle):
-    ad = next(handle.query(projection=["JobStatus"]))
+    ad = handle.query(projection=["JobStatus"])[0]
     return ad["JobStatus"]
 
 
@@ -36,9 +36,7 @@ def test_hold(long_sleep):
     assert status == jobs.JobStatus.HELD
 
 
-@pytest.mark.parametrize(
-    "action", ["remove", "hold", "release", "pause", "resume", "vacate"]
-)
+@pytest.mark.parametrize("action", ["remove", "hold", "release", "pause", "resume", "vacate"])
 def test_actions_will_execute(long_sleep, action):
     handle = jobs.submit(long_sleep, count=1)
 

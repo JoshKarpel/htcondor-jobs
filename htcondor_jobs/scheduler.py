@@ -36,9 +36,7 @@ class Scheduler:
 
     @classmethod
     def from_personal(cls, personal_condor: personal.PersonalCondor) -> "Scheduler":
-        sched = cls(
-            collector=personal_condor.collector(), schedd=personal_condor.schedd()
-        )
+        sched = cls(collector=personal_condor.collector(), schedd=personal_condor.schedd())
         sched._personal_condor = personal_condor
         return sched
 
@@ -77,11 +75,7 @@ class Scheduler:
         return self._schedd
 
     def query(
-        self,
-        constraint="true",
-        projection=None,
-        limit=-1,
-        opts=htcondor.QueryOpts.Default,
+        self, constraint="true", projection=None, limit=-1, opts=htcondor.QueryOpts.Default,
     ):
         """
         Perform a job information query against the pool's schedd.
@@ -105,9 +99,7 @@ class Scheduler:
         )
 
         logger.debug(
-            'Got {} ads from queue query with constraint "{}"'.format(
-                len(ads), constraint
-            )
+            'Got {} ads from queue query with constraint "{}"'.format(len(ads), constraint)
         )
 
         return ads
@@ -125,9 +117,7 @@ class Scheduler:
         -------
 
         """
-        logger.debug(
-            'Executing action: {} with constraint "{}"'.format(action, constraint)
-        )
+        logger.debug('Executing action: {} with constraint "{}"'.format(action, constraint))
         return self.schedd().act(action, constraint)
 
     def edit(self, attr, value, constraint="true"):
@@ -145,9 +135,7 @@ class Scheduler:
 
         """
         logger.debug(
-            'Executing edit: setting {} to {} with constraint "{}"'.format(
-                attr, value, constraint
-            )
+            'Executing edit: setting {} to {} with constraint "{}"'.format(attr, value, constraint)
         )
         return self.schedd().edit(constraint, attr, value)
 

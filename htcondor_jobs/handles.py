@@ -36,9 +36,7 @@ class Handle(abc.ABC):
     The handle can be used to query, act on, or edit those jobs.
     """
 
-    def __init__(
-        self, collector: Optional[str] = None, scheduler: Optional[str] = None
-    ):
+    def __init__(self, collector: Optional[str] = None, scheduler: Optional[str] = None):
         self.collector = collector
         self.scheduler = scheduler
 
@@ -60,13 +58,11 @@ class Handle(abc.ABC):
         )
 
     def __hash__(self):
-        return hash(
-            (self.__class__, self.constraint_string, self.collector, self.scheduler)
-        )
+        return hash((self.__class__, self.constraint_string, self.collector, self.scheduler))
 
     @property
     def schedd(self):
-        return locate.get_schedd(self.collector, self.scheduler)
+        return locate.locate_schedd(self.collector, self.scheduler)
 
     def query(
         self,
@@ -105,13 +101,11 @@ class Handle(abc.ABC):
         logger.info(
             f"Executing query against schedd {self.schedd} with constraint {cs}, projection {projection}, and limit {limit}"
         )
-        return self.schedd.query(cs, projection=projection, opts=options, limit=limit)
+        return self.schedd.query(cs, attr_list=projection, opts=options, limit=limit)
 
     def _act(self, action: htcondor.JobAction) -> classad.ClassAd:
         cs = self.constraint_string
-        logger.info(
-            f"Executing action {action} against schedd {self.schedd} with constraint {cs}"
-        )
+        logger.info(f"Executing action {action} against schedd {self.schedd} with constraint {cs}")
         return self.schedd.act(action, cs)
 
     def remove(self) -> classad.ClassAd:
@@ -247,20 +241,14 @@ class ConstraintHandle(Handle):
     ) -> "ConstraintHandle":
         return self._combine(other, classad.ExprTree.and_)
 
-    def __or__(
-        self, other: Union["ConstraintHandle", classad.ExprTree, str]
-    ) -> "ConstraintHandle":
+    def __or__(self, other: Union["ConstraintHandle", classad.ExprTree, str]) -> "ConstraintHandle":
         return self._combine(other, classad.ExprTree.or_)
 
-    def _combine(
-        self, other: Union["ConstraintHandle", classad.ExprTree, str], combinator
-    ):
+    def _combine(self, other: Union["ConstraintHandle", classad.ExprTree, str], combinator):
         if isinstance(other, ConstraintHandle) and (
             self.collector != other.collector or self.scheduler != other.scheduler
         ):
-            raise exceptions.InvalidHandle(
-                "Cannot construct a handle for separate schedds"
-            )
+            raise exceptions.InvalidHandle("Cannot construct a handle for separate schedds")
 
         if isinstance(other, ConstraintHandle):
             c = other.constraint
@@ -274,9 +262,7 @@ class ConstraintHandle(Handle):
             )
 
         return ConstraintHandle(
-            combinator(self.constraint, c),
-            collector=self.collector,
-            scheduler=self.scheduler,
+            combinator(self.constraint, c), collector=self.collector, scheduler=self.scheduler,
         )
 
     def save(self, path: Path, protocol: Optional[int] = None) -> None:
@@ -398,9 +384,7 @@ class ClusterHandle(ConstraintHandle):
 
         .. code:: python
 
-            handle.wait(
-                condition = lambda hnd: hnd.state.is_complete()
-            )
+            handle.wait(condition=lambda hnd: hnd.state.is_complete())
 
         Where possible, for increased efficiency, use :class:`ClusterState` methods or
         status counts instead of raw job statuses to determine the state of the
@@ -438,10 +422,8 @@ class ClusterHandle(ConstraintHandle):
         return time.time() - start_time
 
     def __getstate__(self):
-        state = super().__getstate__()
-
+        state = self.__dict__.copy()
         state["_state"] = None  # remove state tracker
-
         return state
 
     def to_json(self) -> dict:
@@ -465,9 +447,7 @@ class ClusterHandle(ConstraintHandle):
             num_procs=json["num_procs"],
         )
 
-        return cls(
-            submit_result, collector=json["collector"], scheduler=json["scheduler"]
-        )
+        return cls(submit_result, collector=json["collector"], scheduler=json["scheduler"])
 
 
 class _MockSubmitResult:

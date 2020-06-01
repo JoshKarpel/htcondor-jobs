@@ -59,4 +59,3 @@ Cluster Handles
    .. automethod:: any_idle
    .. automethod:: any_running
    .. automethod:: any_held
-
