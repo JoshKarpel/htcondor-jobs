@@ -4,7 +4,7 @@ branch = True
 data_file = /tmp/htcondor-jobs-test-coverage
 
 include =
-    htcondor-jobs/*
+    htcondor/jobs/*
     tests/*
 
 [report]
