@@ -3,9 +3,9 @@ branch = True
 
 data_file = /tmp/htcondor-jobs-test-coverage
 
-include =
-    htcondor/jobs/*
-    tests/*
+source =
+    htcondor.jobs
+    tests
 
 [report]
 exclude_lines =
