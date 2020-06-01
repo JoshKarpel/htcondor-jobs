@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Union, Iterator, Any, Callable
+from typing import List, Optional, Union, Iterator, Callable
 import logging
 
 import abc
@@ -24,7 +24,7 @@ import pickle
 import htcondor
 import classad
 
-from . import locate, status, utils, exceptions
+from . import locate, status, exceptions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
